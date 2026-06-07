@@ -24,6 +24,7 @@ model Student {
   id           Int            @id @default(autoincrement())
   fullName     String         @map("full_name")
   phoneNumber  String         @map("phone_number")
+  status       String         @default("Ativo") // 🔥 ADICIONADO: Para bater certo com o Frontend
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
   
