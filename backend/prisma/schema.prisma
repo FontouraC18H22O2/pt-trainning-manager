@@ -30,6 +30,7 @@ model Student {
   
   trainingPlans TrainingPlan[]
   whatsappLogs  WhatsappLog[]
+  weightLogs   WeightLog[]
 
   @@map("students")
 }
@@ -71,4 +72,18 @@ model WhatsappLog {
   student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("whatsapp_logs")
+}
+
+model WeightLog {
+  id          Int      @id @default(autoincrement())
+  studentId   Int      @map("student_id")
+  exerciseName String   @map("exercise_name")
+  weight      Float    // Carga levantada em kg
+  repsDone    Int?     @map("reps_done") // Opcional: quantidade de repetições feitas com essa carga
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relações
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("weight_logs")
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import studentService from "../services/studentService";
 import trainingService from "../services/trainingService";
 import whatsappService from "../services/whatsappService";
+import WeightModal from "../components/WeightModal"; // 👈 Injeção do novo componente Modal
 
 export default function Treinos() {
   const [alunos, setAlunos] = useState([]);
@@ -18,15 +19,18 @@ export default function Treinos() {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
-  
-  // 🔥 Controla se o plano visualizado tem alterações pendentes de gravação
   const [isModificado, setIsModificado] = useState(false);
+
+  // 🔥 Estados de Controlo do Modal de Histórico de Cargas
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalExerciseName, setModalExerciseName] = useState("");
 
   // Carregar lista de alunos para a caixa de seleção (Select)
   useEffect(() => {
     const carregarAlunos = async () => {
       try {
         const dados = await studentService.getAllStudents();
+        // Filtrar apenas os alunos que estão ativos no sistema
         setAlunos(dados.filter((a) => a.status === "Ativo"));
       } catch (err) {
         showMsg("error", "Falha ao carregar atletas para o menu.");
@@ -50,8 +54,10 @@ export default function Treinos() {
       const plano = await trainingService.getPlanByStudent(id);
       if (plano) {
         setNotes(plano.notes || "");
+        // Mapeia os dados das colunas em inglês vindas do Prisma
         setExercicios(
           plano.exercises.map((ex) => ({
+            id: ex.id, // Guardamos o ID do banco para saber se o exercício já existe no MySQL
             exerciseName: ex.exerciseName,
             sets: ex.sets,
             reps: ex.reps,
@@ -60,11 +66,11 @@ export default function Treinos() {
           })),
         );
       } else {
+        // Se o aluno não tiver plano, limpa os campos para criar um novo
         setNotes("");
         setExercicios([]);
       }
-      // 🔥 Acabou de carregar do banco, o estado atual está idêntico ao MySQL
-      setIsModificado(false);
+      setIsModificado(false); // Carregado do banco, estado limpo
     } catch (err) {
       showMsg("error", "Erro ao carregar o plano deste aluno.");
     } finally {
@@ -91,10 +97,9 @@ export default function Treinos() {
     };
 
     setExercicios([...exercicios, novoEx]);
-    
-    // 🔥 Ativa o bloqueio porque a lista local mudou em relação ao banco
-    setIsModificado(true);
+    setIsModificado(true); // Bloqueia o WhatsApp até sincronizar no MySQL
 
+    // Limpa apenas os inputs do exercício
     setExerciseName("");
     setExNotes("");
   };
@@ -102,8 +107,7 @@ export default function Treinos() {
   // Remover exercício da lista local antes de guardar
   const handleRemoveExercicioLocal = (indexParaRemover) => {
     setExercicios(exercicios.filter((_, idx) => idx !== indexParaRemover));
-    // 🔥 Ativa o bloqueio porque removeu um item localmente
-    setIsModificado(true);
+    setIsModificado(true); // Bloqueia o WhatsApp até sincronizar no MySQL
   };
 
   const limparFormularioCompleto = () => {
@@ -130,18 +134,24 @@ export default function Treinos() {
 
       await trainingService.saveTrainingPlan(payload);
       
-      // 🔥 Desbloqueia o botão do WhatsApp: O plano local agora está salvo no MySQL!
-      setIsModificado(false);
+      // Recarrega o plano para puxar os IDs corretos gerados pelo MySQL/Prisma
+      await carregarPlanoAluno(alunoSelecionadoId);
 
       showMsg(
         "success",
-        "Plano de treino updated e sincronizado no MySQL com sucesso!",
+        "Plano de treino atualizado e sincronizado no MySQL com sucesso!",
       );
     } catch (err) {
       showMsg("error", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // 🔥 Função auxiliar para abrir a janela de histórico
+  const handleOpenWeights = (exerciseName) => {
+    setModalExerciseName(exerciseName);
+    setIsModalOpen(true);
   };
 
   return (
@@ -291,10 +301,9 @@ export default function Treinos() {
                       type="text"
                       placeholder="Ex: Foco em hipertrofia - Progressão de carga na última série."
                       value={notes}
-                      // 🔥 Atualiza as notas e liga o estado modificado
                       onChange={(e) => {
                         setNotes(e.target.value);
-                        setIsModificado(true);
+                        setIsModificado(true); // Bloqueia WhatsApp por ter edições locais
                       }}
                       className="w-full px-4 py-3 text-sm text-white border outline-none bg-neutral-950 border-neutral-800 rounded-xl focus:border-fitnessGym placeholder-neutral-600"
                     />
@@ -310,7 +319,7 @@ export default function Treinos() {
                           <th className="p-3 text-center">Reps</th>
                           <th className="p-3 text-center">Descanso</th>
                           <th className="p-3">Notas Técnicas</th>
-                          <th className="p-3 text-right">Ação</th>
+                          <th className="p-3 text-right">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-800 text-neutral-300">
@@ -333,20 +342,34 @@ export default function Treinos() {
                                 {ex.restTime}
                               </td>
                               <td
-                                className="p-3 text-xs text-neutral-400 max-w-[180px] truncate"
+                                className="p-3 text-xs text-neutral-400 max-w-[150px] truncate"
                                 title={ex.notes}
                               >
                                 {ex.notes || "-"}
                               </td>
                               <td className="p-3 text-right">
-                                <button
-                                  onClick={() =>
-                                    handleRemoveExercicioLocal(index)
-                                  }
-                                  className="text-xs font-medium text-red-400 transition-colors cursor-pointer hover:text-red-500"
-                                >
-                                  Remover
-                                </button>
+                                <div className="flex items-center justify-end gap-3">
+                                  {/* 🔥 Botão de Cargas (Apenas ativo se o plano/exercício estiver sincronizado no MySQL e não houver edições pendentes) */}
+                                  <button
+                                    onClick={() => handleOpenWeights(ex.exerciseName)}
+                                    disabled={isModificado}
+                                    className={`text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+                                      isModificado 
+                                        ? 'text-neutral-600 cursor-not-allowed opacity-40' 
+                                        : 'text-fitnessGym hover:text-emerald-400'
+                                    }`}
+                                    title={isModificado ? "Sincronize primeiro as alterações no MySQL" : "Registar/Ver Cargas"}
+                                  >
+                                    📈 Cargas
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleRemoveExercicioLocal(index)}
+                                    className="text-xs font-medium text-red-400 transition-colors cursor-pointer hover:text-red-500"
+                                  >
+                                    Remover
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -366,8 +389,6 @@ export default function Treinos() {
 
                   {/* Painel Inferior de Gravação e Envio */}
                   <div className="flex justify-end gap-3 pt-2">
-                    
-                    {/* Botão Enviar por WhatsApp Controlado */}
                     <button
                       onClick={() => {
                         const alunoAtual = alunos.find(
@@ -386,24 +407,22 @@ export default function Treinos() {
                           window.open(urlUrl, "_blank");
                         }
                       }}
-                      // 🔥 Bloqueia se não houver exercícios OU se houver alterações por salvar no banco
                       disabled={exercicios.length === 0 || isModificado}
                       className="px-5 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-semibold text-sm transition-colors cursor-pointer border border-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-                      title={isModificado ? "Grave as alterações no MySQL primeiro para poder partilhar" : "Enviar ficha atual"}
+                      title={isModificado ? "Grave as alterações primeiro" : "Enviar por WhatsApp"}
                     >
                       <img
                         src="/whatsapp.png"
                         alt="WhatsApp"
                         className="object-contain w-5 h-5"
                       />
-                      {/* 🔥 Texto Dinâmico */}
-                      {isModificado ? "Grave para Ativar Envio" : "Enviar para o WhatsApp"}
+                      {isModificado ? "Grave para Ativar" : "Enviar para o WhatsApp"}
                     </button>
 
                     <button
                       onClick={handleSavePlanoGeral}
                       disabled={loading}
-                      className="px-6 py-2.5 rounded-xl bg-fitnessGym hover:bg-emerald-600 text-neutral-950 font-bold text-sm transition-colors cursor-pointer shadow-lg shadow-emerald-500/10"
+                     className="px-6 py-2.5 rounded-xl bg-fitnessGym hover:bg-emerald-600 text-neutral-950 font-bold text-sm transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {loading ? "A Gravar..." : "Sincronizar Plano no MySQL"}
                     </button>
@@ -414,6 +433,14 @@ export default function Treinos() {
           </div>
         </div>
       )}
+
+      {/* 🔥 Chamada Dinâmica do Modal de Cargas */}
+      <WeightModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        studentId={alunoSelecionadoId}
+        exerciseName={modalExerciseName}
+      />
     </div>
   );
 }
