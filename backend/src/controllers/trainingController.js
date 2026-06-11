@@ -103,7 +103,78 @@ const saveTrainingPlan = async (req, res) => {
   }
 };
 
+// 4. Buscar Plano Público (Acesso anónimo para o aluno via link do WhatsApp)
+const getPublicPlan = async (req, res) => {
+  try {
+    const { planId } = req.params;
+    const id = parseInt(planId);
+
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'ID do plano inválido.' });
+    }
+
+    // Procura o plano de treino no MySQL e inclui os dados do Atleta
+    const trainingPlan = await prisma.trainingPlan.findUnique({
+      where: { id },
+      include: {
+        exercises: true,
+        student: {
+          select: { fullName: true }
+        }
+      }
+    });
+
+    if (!trainingPlan) {
+      return res.status(404).json({ error: 'Plano de treino não encontrado ou expirado.' });
+    }
+
+    // 🎯 CORREÇÃO AQUI: Mudado de global_exercise para globalExercise
+    const dbExercises = await prisma.globalExercise.findMany({
+      where: {
+        name: { in: trainingPlan.exercises.map(e => e.exerciseName) }
+      },
+      select: { name: true, gifUrl: true }
+    });
+
+    const exerciseMap = {};
+    dbExercises.forEach(ex => {
+      exerciseMap[ex.name.toLowerCase().trim()] = ex.gifUrl;
+    });
+
+    const exercisesWithGifs = trainingPlan.exercises.map(ex => ({
+      ...ex,
+      gifUrl: exerciseMap[ex.exerciseName.toLowerCase().trim()] || null
+    }));
+
+    return res.status(200).json({
+      id: trainingPlan.id,
+      studentName: trainingPlan.student?.fullName || 'Atleta',
+      notes: trainingPlan.notes,
+      createdAt: trainingPlan.createdAt,
+      exercises: exercisesWithGifs
+    });
+  } catch (error) {
+    console.error('❌ Erro ao buscar plano público:', error);
+    return res.status(500).json({ error: 'Erro interno ao buscar o plano de treino.' });
+  }
+};
+// Buscar todos os GIFs disponíveis na base de dados
+const getAllGifs = async (req, res) => {
+  try {
+    const exercises = await prisma.globalExercise.findMany({
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, gifUrl: true, category: true }
+    });
+    return res.status(200).json(exercises);
+  } catch (error) {
+    console.error('❌ Erro ao ir buscar GIFs:', error);
+    return res.status(500).json({ error: 'Erro ao carregar a lista de exercícios.' });
+  }
+};
+
 module.exports = {
   getPlanByStudent,
-  saveTrainingPlan
+  saveTrainingPlan,
+  getPublicPlan,
+  getAllGifs
 };

@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const trainingController = require('../controllers/trainingController');
-const protect = require('../middlewares/authMiddleware'); // 🔑 Importação direta correta
+const protect = require('../middlewares/authMiddleware');
 
-// 🔒 Todas as rotas de treino passam a exigir validação de token JWT do PT logado
+router.get('/gifs', protect, trainingController.getAllGifs);
 router.get('/student/:studentId', protect, trainingController.getPlanByStudent);
 router.post('/', protect, trainingController.saveTrainingPlan);
+
+router.get('/public/:planId', trainingController.getPublicPlan);
 
 module.exports = router;

@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Alunos from './pages/Alunos'; 
 import Treinos from './pages/Treinos'; 
 import Galeria from './pages/Galeria'; 
+import VisualizarTreino from './pages/VisualizarTreino';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout'; 
 
@@ -15,11 +16,10 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* 🟢 Rotas Públicas */}
           <Route path="/" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/meutreino/:planId" element={<VisualizarTreino />} />
 
-          {/* 🔴 Grupo de Rotas Privadas - Todas passam pelo DashboardLayout */}
           <Route 
             path="/dashboard" 
             element={
@@ -28,7 +28,6 @@ function App() {
               </ProtectedRoute>
             }
           >
-            {/* O URL "/dashboard" (Visão Geral) - Apenas ADMIN e PT */}
             <Route 
               index 
               element={
@@ -37,8 +36,6 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-            
-            {/* O URL "/dashboard/alunos" - Apenas ADMIN e PT */}
             <Route 
               path="alunos" 
               element={
@@ -47,8 +44,6 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-            
-            {/* O URL "/dashboard/treinos" - Apenas ADMIN e PT */}
             <Route 
               path="treinos" 
               element={
@@ -57,8 +52,6 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-
-            {/* O URL "/dashboard/galeria" - Todos podem ver */}
             <Route 
               path="galeria" 
               element={
@@ -69,7 +62,6 @@ function App() {
             />
           </Route>
 
-          {/* Fallback Global */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

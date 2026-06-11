@@ -23,6 +23,17 @@ const trainingService = {
       console.error('Erro ao salvar plano de treino:', error);
       throw error.response?.data?.error || 'Erro ao salvar o plano de treino.';
     }
+  },
+
+  // 3. Ir buscar todos os exercícios da biblioteca global (com GIFs)
+  getAllExercises: async () => {
+    try {
+      const response = await axios.get(`${API_URL}/gifs`);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao carregar biblioteca de exercícios:', error);
+      throw error.response?.data?.error || 'Erro ao carregar a biblioteca.';
+    }
   }
 };
 

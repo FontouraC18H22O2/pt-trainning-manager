@@ -1,8 +1,5 @@
 const whatsappService = {
-  /**
-   * 📝 Gera exatamente a string original da mensagem (para o Preview)
-   */
-  gerarTextoMensagem: (studentName, exercises, generalNotes) => {
+  gerarTextoMensagem: (studentName, exercises, generalNotes, planId) => {
     let mensagem = `*OLÁ, ${studentName.toUpperCase()}!* \n\n`;
     mensagem += `O teu *Plano de Treino* já está disponível! Aqui está a tua rotina de exercícios:\n\n`;
 
@@ -14,7 +11,7 @@ const whatsappService = {
     mensagem += `------------------------------------\n`;
 
     if (exercises && exercises.length > 0) {
-      exercises.forEach((ex, idx) => {
+      exercises.forEach((ex) => {
         mensagem += `🔹 *${ex.exerciseName}*\n`; 
         mensagem += `   •  ${ex.sets} Séries x ${ex.reps} Reps\n`;
         mensagem += `   •  Descanso: ${ex.restTime}\n`;
@@ -28,16 +25,20 @@ const whatsappService = {
     }
 
     mensagem += `------------------------------------\n`;
+    
+    if (planId) {
+      mensagem += `🔗 *Clica no link para veres os GIFs animados do teu treino:*\n`;
+      mensagem += `http://localhost:5173/meutreino/${planId}\n\n`;
+      mensagem += `------------------------------------\n`;
+    }
+
     mensagem += ` Dá o teu máximo no próximo treino! Qualquer dúvida, avisa-me por aqui.\n`;
     mensagem += ` _Bons treinos!_`;
 
     return mensagem;
   },
 
-  /**
-   * 🚀 Limpa o número e junta o texto gerado para abrir a API do WhatsApp
-   */
-  enviarPlanoTreino: (phoneNumber, studentName, exercises, generalNotes) => {
+  enviarPlanoTreino: (phoneNumber, studentName, exercises, generalNotes, planId) => {
     if (!phoneNumber) return null;
 
     let cleanNumber = phoneNumber.replace(/\D/g, '');
@@ -46,10 +47,10 @@ const whatsappService = {
       cleanNumber = '351' + cleanNumber;
     }
 
-    // Chama a função acima para apanhar a string original idêntica
-    const textoFormatado = whatsappService.gerarTextoMensagem(studentName, exercises, generalNotes);
-
-    return `https://api.whatsapp.com/send?phone=${cleanNumber}&text=${encodeURIComponent(textoFormatado)}`;
+    const texto = whatsappService.gerarTextoMensagem(studentName, exercises, generalNotes, planId);
+    const url = `https://api.whatsapp.com/send?phone=${cleanNumber}&text=${encodeURIComponent(texto)}`;
+    
+    return url;
   }
 };
 

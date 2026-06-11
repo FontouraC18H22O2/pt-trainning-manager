@@ -1,49 +1,87 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import studentService from "../services/studentService";
 import trainingService from "../services/trainingService";
 import whatsappService from "../services/whatsappService";
-import WeightModal from "../components/WeightModal"; // 👈 Injeção do novo componente Modal
+import WeightModal from "../components/WeightModal";
+
+const BACKEND_URL = "http://localhost:5000";
 
 export default function Treinos() {
   const [alunos, setAlunos] = useState([]);
   const [alunoSelecionadoId, setAlunoSelecionadoId] = useState("");
   const [notes, setNotes] = useState("");
   const [exercicios, setExercicios] = useState([]);
+  // ID do plano guardado no MySQL (para o link do WhatsApp)
+  const [savedPlanId, setSavedPlanId] = useState(null);
 
-  // Estados de controlo do formulário de novo exercício
-  const [exerciseName, setExerciseName] = useState("");
+  // Biblioteca de exercícios da global_exercises
+  const [biblioteca, setBiblioteca] = useState([]);
+  const [bibliotecaLoading, setBibliotecaLoading] = useState(false);
+
+  // Estados do formulário de novo exercício
+  const [exerciseSearch, setExerciseSearch] = useState("");
+  const [exerciseSelected, setExerciseSelected] = useState(null); // { id, name, gifUrl }
+  const [showDropdown, setShowDropdown] = useState(false);
   const [sets, setSets] = useState("4");
   const [reps, setReps] = useState("10");
   const [restTime, setRestTime] = useState("60s");
   const [exNotes, setExNotes] = useState("");
+  const dropdownRef = useRef(null);
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [isModificado, setIsModificado] = useState(false);
 
-  //  Estados de Controlo do Modal de Histórico de Cargas
+  // Modal de histórico de cargas
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalExerciseName, setModalExerciseName] = useState("");
-  // Modal de Previsualização do Plano Completo antes de Enviar para o WhatsApp
+
+  // Modal preview WhatsApp
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [whatsappTexto, setWhatsappTexto] = useState("");
   const [alunoDestino, setAlunoDestino] = useState(null);
 
-  // Carregar lista de alunos para a caixa de seleção (Select)
+  // Fechar dropdown ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Carregar alunos ativos
   useEffect(() => {
     const carregarAlunos = async () => {
       try {
         const dados = await studentService.getAllStudents();
-        // Filtrar apenas os alunos que estão ativos no sistema
         setAlunos(dados.filter((a) => a.status === "Ativo"));
-      } catch (err) {
+      } catch {
         showMsg("error", "Falha ao carregar atletas para o menu.");
       }
     };
     carregarAlunos();
   }, []);
 
-  // Escutar a troca de aluno para carregar o plano existente no MySQL
+  // Carregar biblioteca de exercícios (global_exercises)
+  useEffect(() => {
+    const carregarBiblioteca = async () => {
+      try {
+        setBibliotecaLoading(true);
+        const dados = await trainingService.getAllExercises();
+        setBiblioteca(dados);
+      } catch {
+        // Falha silenciosa — o PT ainda pode escrever o nome manualmente
+      } finally {
+        setBibliotecaLoading(false);
+      }
+    };
+    carregarBiblioteca();
+  }, []);
+
+  // Ao trocar de aluno, carrega o plano
   useEffect(() => {
     if (!alunoSelecionadoId) {
       limparFormularioCompleto();
@@ -57,25 +95,26 @@ export default function Treinos() {
       setLoading(true);
       const plano = await trainingService.getPlanByStudent(id);
       if (plano) {
+        setSavedPlanId(plano.id);
         setNotes(plano.notes || "");
-        // Mapeia os dados das colunas em inglês vindas do Prisma
         setExercicios(
           plano.exercises.map((ex) => ({
-            id: ex.id, // Guardamos o ID do banco para saber se o exercício já existe no MySQL
+            id: ex.id,
             exerciseName: ex.exerciseName,
+            gifUrl: ex.gifUrl || null,
             sets: ex.sets,
             reps: ex.reps,
             restTime: ex.restTime,
             notes: ex.notes,
-          })),
+          }))
         );
       } else {
-        // Se o aluno não tiver plano, limpa os campos para criar um novo
+        setSavedPlanId(null);
         setNotes("");
         setExercicios([]);
       }
-      setIsModificado(false); // Carregado do banco, estado limpo
-    } catch (err) {
+      setIsModificado(false);
+    } catch {
       showMsg("error", "Erro ao carregar o plano deste aluno.");
     } finally {
       setLoading(false);
@@ -87,47 +126,89 @@ export default function Treinos() {
     setTimeout(() => setMessage({ type: "", text: "" }), 4000);
   };
 
-  // Adicionar exercício dinamicamente à lista local da tabela
-  const handleAddExercicio = (e) => {
-    e.preventDefault();
-    if (!exerciseName.trim()) return;
+  // Sugestões filtradas pelo texto de pesquisa
+  const sugestoes = exerciseSearch.trim().length >= 1
+    ? biblioteca.filter((ex) =>
+        ex.name.toLowerCase().includes(exerciseSearch.toLowerCase())
+      ).slice(0, 8)
+    : [];
 
-    const novoEx = {
-      exerciseName: exerciseName.trim(),
-      sets: parseInt(sets) || 4,
-      reps: parseInt(reps) || 10,
-      restTime: restTime.trim() || "60s",
-      notes: exNotes.trim(),
-    };
-
-    setExercicios([...exercicios, novoEx]);
-    setIsModificado(true); // Bloqueia o WhatsApp até sincronizar no MySQL
-
-    // Limpa apenas os inputs do exercício
-    setExerciseName("");
-    setExNotes("");
+  const handleSelectExercise = (ex) => {
+    setExerciseSelected(ex);
+    setExerciseSearch(ex.name);
+    setShowDropdown(false);
   };
 
-  // Remover exercício da lista local antes de guardar
+  // Nova função para quando o utilizador muda o GIF diretamente pelo Dropdown manual
+  const handleSelectGifDropdown = (e) => {
+    const urlSelecionada = e.target.value;
+    if (!urlSelecionada) {
+      // Se limpar, remove apenas o vinculo do gif anterior
+      setExerciseSelected(prev => prev ? { ...prev, gifUrl: null } : null);
+      return;
+    }
+
+    // Procura o exercício correspondente na biblioteca para herdar os dados completos se necessário
+    const exCorrespondente = biblioteca.find(ex => ex.gifUrl === urlSelecionada);
+    
+    if (exCorrespondente) {
+      setExerciseSelected({
+        id: exCorrespondente.id,
+        name: exerciseSelected?.name || exCorrespondente.name,
+        gifUrl: exCorrespondente.gifUrl,
+        category: exCorrespondente.category
+      });
+      // Se o campo de texto estiver vazio, preenche automaticamente com o nome correspondente do GIF
+      if (!exerciseSearch.trim()) {
+        setExerciseSearch(exCorrespondente.name);
+      }
+    } else {
+      setExerciseSelected(prev => ({
+        ...prev,
+        gifUrl: urlSelecionada
+      }));
+    }
+  };
+
+  const handleAddExercicio = (e) => {
+  e.preventDefault(); // ✅ Correto! Agora o formulário não recarrega e executa o resto.
+  const nome = exerciseSelected?.name || exerciseSearch.trim();
+  if (!nome) return;
+
+  const novoEx = {
+    exerciseName: nome,
+    gifUrl: exerciseSelected?.gifUrl || null,
+    sets: parseInt(sets) || 4,
+    reps: parseInt(reps) || 10,
+    restTime: restTime.trim() || "60s",
+    notes: exNotes.trim(),
+  };
+
+  setExercicios([...exercicios, novoEx]);
+  setIsModificado(true);
+  setExerciseSearch("");
+  setExerciseSelected(null);
+  setExNotes("");
+};
+
   const handleRemoveExercicioLocal = (indexParaRemover) => {
     setExercicios(exercicios.filter((_, idx) => idx !== indexParaRemover));
-    setIsModificado(true); // Bloqueia o WhatsApp até sincronizar no MySQL
+    setIsModificado(true);
   };
 
   const limparFormularioCompleto = () => {
     setNotes("");
     setExercicios([]);
     setAlunoSelecionadoId("");
+    setSavedPlanId(null);
     setIsModificado(false);
   };
 
-  // Submeter o plano completo estruturado para o Backend
   const handleSavePlanoGeral = async () => {
     if (!alunoSelecionadoId) {
       showMsg("error", "Selecione primeiro um atleta da lista.");
       return;
     }
-
     try {
       setLoading(true);
       const payload = {
@@ -135,16 +216,10 @@ export default function Treinos() {
         notes: notes.trim(),
         exercises: exercicios,
       };
-
-      await trainingService.saveTrainingPlan(payload);
-
-      // Recarrega o plano para puxar os IDs corretos gerados pelo MySQL/Prisma
+      const resultado = await trainingService.saveTrainingPlan(payload);
+      setSavedPlanId(resultado.plan?.id || null);
       await carregarPlanoAluno(alunoSelecionadoId);
-
-      showMsg(
-        "success",
-        "Plano de treino atualizado e sincronizado no MySQL com sucesso!",
-      );
+      showMsg("success", "Plano de treino atualizado e sincronizado no MySQL com sucesso!");
     } catch (err) {
       showMsg("error", err);
     } finally {
@@ -152,23 +227,25 @@ export default function Treinos() {
     }
   };
 
-  //  Função auxiliar para abrir a janela de histórico
   const handleOpenWeights = (exerciseName) => {
     setModalExerciseName(exerciseName);
     setIsModalOpen(true);
   };
+
   const handleAbrirPreviewWhatsApp = () => {
-  const aluno = alunos.find(a => a.id === parseInt(alunoSelecionadoId));
-  if (!aluno) return;
+    const aluno = alunos.find((a) => a.id === parseInt(alunoSelecionadoId));
+    if (!aluno) return;
+    setAlunoDestino(aluno);
+    const textoMapeado = whatsappService.gerarTextoMensagem(
+      aluno.nome,
+      exercicios,
+      notes,
+      savedPlanId
+    );
+    setWhatsappTexto(textoMapeado);
+    setIsPreviewOpen(true);
+  };
 
-  setAlunoDestino(aluno);
-
-  //  INDO BUSCAR DIRETAMENTE AO SERVIÇO: O texto exato e padronizado!
-  const textoMapeado = whatsappService.gerarTextoMensagem(aluno.nome, exercicios, notes);
-
-  setWhatsappTexto(textoMapeado);
-  setIsPreviewOpen(true);
-};
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
@@ -177,12 +254,11 @@ export default function Treinos() {
           Prescrever Treinos
         </h1>
         <p className="mt-1 text-sm text-neutral-400">
-          Selecione um aluno ativo e monte a sua rotina de exercícios
-          personalizada.
+          Selecione um aluno ativo e monte a sua rotina de exercícios personalizada.
         </p>
       </div>
 
-      {/* Alertas Rápidos */}
+      {/* Alertas */}
       {message.text && (
         <div
           className={`p-4 text-sm rounded-2xl border ${
@@ -205,9 +281,7 @@ export default function Treinos() {
           onChange={(e) => setAlunoSelecionadoId(e.target.value)}
           className="w-full max-w-md px-4 py-3 text-sm text-white transition-colors border outline-none cursor-pointer bg-neutral-950 border-neutral-800 rounded-xl focus:border-fitnessGym"
         >
-          <option value="">
-            Escolha um aluno na lista para gerir o treino...
-          </option>
+          <option value="">Escolha um aluno na lista para gerir o treino...</option>
           {alunos.map((aluno) => (
             <option key={aluno.id} value={aluno.id}>
               {aluno.nome} ({aluno.whatsapp})
@@ -218,25 +292,107 @@ export default function Treinos() {
 
       {alunoSelecionadoId && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Formulário lateral de Adicionar Exercício */}
+          {/* Formulário lateral — Adicionar Exercício */}
           <div className="p-5 space-y-4 border h-fit bg-neutral-900 border-neutral-800 rounded-2xl">
             <h2 className="pb-2 text-lg font-bold text-white border-b border-neutral-800">
               ➕ Adicionar Exercício
             </h2>
             <form onSubmit={handleAddExercicio} className="space-y-4">
-              <div className="space-y-1">
+
+              {/* Campo de pesquisa com autocomplete + preview do GIF */}
+              <div className="space-y-1" ref={dropdownRef}>
                 <label className="text-xs text-neutral-400">
-                  Nome do Exercício *
+                  Nome do Exercício *{" "}
+                  {bibliotecaLoading && (
+                    <span className="text-neutral-600">(a carregar...)</span>
+                  )}
                 </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Leg Press 45º"
-                  value={exerciseName}
-                  onChange={(e) => setExerciseName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm text-white border outline-none bg-neutral-950 border-neutral-800 rounded-xl focus:border-fitnessGym"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Ex: Leg Press 45º"
+                    value={exerciseSearch}
+                    onChange={(e) => {
+                      setExerciseSearch(e.target.value);
+                      setExerciseSelected(null);
+                      setShowDropdown(true);
+                    }}
+                    onFocus={() => {
+                      if (exerciseSearch.trim().length >= 1) setShowDropdown(true);
+                    }}
+                    className="w-full px-3 py-2 text-sm text-white border outline-none bg-neutral-950 border-neutral-800 rounded-xl focus:border-fitnessGym"
+                    required
+                    autoComplete="off"
+                  />
+
+                  {/* Dropdown de sugestões */}
+                  {showDropdown && sugestoes.length > 0 && (
+                    <ul className="absolute z-50 w-full mt-1 overflow-hidden overflow-y-auto border shadow-xl border-neutral-700 rounded-xl bg-neutral-900 max-h-52">
+                      {sugestoes.map((ex) => (
+                        <li
+                          key={ex.id}
+                          onMouseDown={() => handleSelectExercise(ex)}
+                          className="flex items-center gap-3 px-3 py-2 transition-colors cursor-pointer hover:bg-neutral-800"
+                        >
+                          {ex.gifUrl ? (
+                            <img
+                              src={`${BACKEND_URL}${ex.gifUrl}`}
+                              alt={ex.name}
+                              className="flex-shrink-0 object-cover w-10 h-10 border rounded-lg border-neutral-700"
+                              onError={(e) => { e.target.style.display = "none"; }}
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center flex-shrink-0 w-10 h-10 text-xs border rounded-lg border-neutral-800 bg-neutral-950 text-neutral-600">
+                              🏋️
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">{ex.name}</p>
+                            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">{ex.category}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
+
+              {/* 🟢 NOVO: Dropdown para buscar/associar os GIFs diretamente da DB */}
+              <div className="space-y-1">
+                <label className="text-xs text-neutral-400">Animação / GIF de Suporte</label>
+                <select
+                  value={exerciseSelected?.gifUrl || ""}
+                  onChange={handleSelectGifDropdown}
+                  className="w-full px-3 py-2 text-sm text-white transition-colors border outline-none cursor-pointer bg-neutral-950 border-neutral-800 rounded-xl focus:border-fitnessGym"
+                >
+                  <option value="">-- Sem Animação Associada --</option>
+                  {biblioteca
+                    .filter(ex => ex.gifUrl) // Garante que só lista quem tem GIF populado
+                    .map((ex) => (
+                      <option key={`gif-opt-${ex.id}`} value={ex.gifUrl}>
+                        {ex.name} ({ex.category || "Geral"})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Preview do GIF do exercício selecionado */}
+              {exerciseSelected?.gifUrl && (
+                <div className="flex items-center gap-3 p-2 mt-1 border rounded-xl bg-neutral-950 border-neutral-800">
+                  <img
+                    src={`${BACKEND_URL}${exerciseSelected.gifUrl}`}
+                    alt={exerciseSelected.name}
+                    className="flex-shrink-0 object-cover w-16 h-16 border rounded-lg border-neutral-800"
+                  />
+                  <div>
+                    <p className="text-xs font-bold text-white">{exerciseSelected.name}</p>
+                    {exerciseSelected.category && (
+                      <p className="text-[10px] text-neutral-500 uppercase mt-0.5">{exerciseSelected.category}</p>
+                    )}
+                    <span className="text-[10px] text-emerald-400">✔ GIF Vinculado</span>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1">
@@ -269,9 +425,7 @@ export default function Treinos() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs text-neutral-400">
-                  Notas / Instruções Técnicas
-                </label>
+                <label className="text-xs text-neutral-400">Notas / Instruções Técnicas</label>
                 <textarea
                   placeholder="Ex: Carga progressiva, cadência 3-1-1..."
                   rows="2"
@@ -290,7 +444,7 @@ export default function Treinos() {
             </form>
           </div>
 
-          {/* Tabela de Visualização Global do Treino Ativo */}
+          {/* Tabela do plano ativo */}
           <div className="space-y-4 lg:col-span-2">
             <div className="p-5 space-y-4 border bg-neutral-900 border-neutral-800 rounded-2xl">
               <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
@@ -308,7 +462,6 @@ export default function Treinos() {
                 </div>
               ) : (
                 <>
-                  {/* Caixa de Observações Gerais do Plano */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold tracking-wider uppercase text-neutral-400">
                       Observações do Plano de Treino (Foco Geral)
@@ -317,78 +470,65 @@ export default function Treinos() {
                       type="text"
                       placeholder="Ex: Foco em hipertrofia - Progressão de carga na última série."
                       value={notes}
-                      onChange={(e) => {
-                        setNotes(e.target.value);
-                        setIsModificado(true); // Bloqueia WhatsApp por ter edições locais
-                      }}
+                      onChange={(e) => { setNotes(e.target.value); setIsModificado(true); }}
                       className="w-full px-4 py-3 text-sm text-white border outline-none bg-neutral-950 border-neutral-800 rounded-xl focus:border-fitnessGym placeholder-neutral-600"
                     />
                   </div>
 
-                  {/* Lista de Exercícios Adicionados */}
                   <div className="overflow-hidden border border-neutral-800 rounded-xl bg-neutral-950">
                     <table className="w-full text-sm text-left border-collapse">
                       <thead>
                         <tr className="text-xs font-medium tracking-wider uppercase border-b bg-neutral-900 text-neutral-400 border-neutral-800">
+                          <th className="p-3">GIF</th>
                           <th className="p-3">Exercício</th>
                           <th className="p-3 text-center">Séries</th>
                           <th className="p-3 text-center">Reps</th>
                           <th className="p-3 text-center">Descanso</th>
-                          <th className="p-3">Notas Técnicas</th>
+                          <th className="p-3">Notas</th>
                           <th className="p-3 text-right">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-800 text-neutral-300">
                         {exercicios.length > 0 ? (
                           exercicios.map((ex, index) => (
-                            <tr
-                              key={index}
-                              className="transition-colors hover:bg-neutral-900/40"
-                            >
-                              <td className="p-3 font-semibold text-white">
-                                {ex.exerciseName}
+                            <tr key={index} className="transition-colors hover:bg-neutral-900/40">
+                              <td className="p-3">
+                                {ex.gifUrl ? (
+                                  <img
+                                    src={`${BACKEND_URL}${ex.gifUrl}`}
+                                    alt={ex.exerciseName}
+                                    className="object-cover w-12 h-12 border rounded-lg border-neutral-800"
+                                    onError={(e) => { e.target.style.display = "none"; }}
+                                  />
+                                ) : (
+                                  <div className="flex items-center justify-center w-12 h-12 text-xs border rounded-lg border-neutral-800 bg-neutral-900 text-neutral-600">
+                                    —
+                                  </div>
+                                )}
                               </td>
-                              <td className="p-3 font-mono text-center">
-                                {ex.sets}
-                              </td>
-                              <td className="p-3 font-mono text-center">
-                                {ex.reps}
-                              </td>
-                              <td className="p-3 font-mono text-center text-neutral-400">
-                                {ex.restTime}
-                              </td>
-                              <td
-                                className="p-3 text-xs text-neutral-400 max-w-[150px] truncate"
-                                title={ex.notes}
-                              >
-                                {ex.notes || "-"}
+                              <td className="p-3 font-semibold text-white">{ex.exerciseName}</td>
+                              <td className="p-3 font-mono text-center">{ex.sets}</td>
+                              <td className="p-3 font-mono text-center">{ex.reps}</td>
+                              <td className="p-3 font-mono text-center text-neutral-400">{ex.restTime}</td>
+                              <td className="p-3 text-xs text-neutral-400 max-w-[120px] truncate" title={ex.notes}>
+                                {ex.notes || "—"}
                               </td>
                               <td className="p-3 text-right">
                                 <div className="flex items-center justify-end gap-3">
-                                  {/* 🔥 Botão de Cargas (Apenas ativo se o plano/exercício estiver sincronizado no MySQL e não houver edições pendentes) */}
                                   <button
-                                    onClick={() =>
-                                      handleOpenWeights(ex.exerciseName)
-                                    }
+                                    onClick={() => handleOpenWeights(ex.exerciseName)}
                                     disabled={isModificado}
                                     className={`text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
                                       isModificado
                                         ? "text-neutral-600 cursor-not-allowed opacity-40"
                                         : "text-fitnessGym hover:text-emerald-400"
                                     }`}
-                                    title={
-                                      isModificado
-                                        ? "Sincronize primeiro as alterações no MySQL"
-                                        : "Registar/Ver Cargas"
-                                    }
+                                    title={isModificado ? "Sincronize primeiro" : "Registar/Ver Cargas"}
                                   >
                                     📈 Cargas
                                   </button>
-
                                   <button
-                                    onClick={() =>
-                                      handleRemoveExercicioLocal(index)
-                                    }
+                                    onClick={() => handleRemoveExercicioLocal(index)}
                                     className="text-xs font-medium text-red-400 transition-colors cursor-pointer hover:text-red-500"
                                   >
                                     Remover
@@ -399,12 +539,8 @@ export default function Treinos() {
                           ))
                         ) : (
                           <tr>
-                            <td
-                              colSpan="6"
-                              className="p-6 text-xs italic text-center text-neutral-600"
-                            >
-                              Nenhum exercício adicionado a este plano de
-                              treino. Comece a injetar no painel lateral.
+                            <td colSpan="7" className="p-6 text-xs italic text-center text-neutral-600">
+                              Nenhum exercício adicionado. Comece a injetar no painel lateral.
                             </td>
                           </tr>
                         )}
@@ -412,32 +548,15 @@ export default function Treinos() {
                     </table>
                   </div>
 
-                  {/* Painel Inferior de Gravação e Envio */}
                   <div className="flex justify-end gap-3 pt-2">
                     <button
-                      onClick={handleAbrirPreviewWhatsApp} // 📱 Dispara o nosso Preview interativo
-                      disabled={
-                        exercicios.length === 0 ||
-                        isModificado ||
-                        !alunoSelecionadoId
-                      }
+                      onClick={handleAbrirPreviewWhatsApp}
+                      disabled={exercicios.length === 0 || isModificado || !alunoSelecionadoId}
                       className="px-5 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-semibold text-sm transition-colors cursor-pointer border border-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-                      title={
-                        !alunoSelecionadoId
-                          ? "Selecione um aluno primeiro"
-                          : isModificado
-                            ? "Grave as alterações primeiro"
-                            : "Visualizar e Enviar por WhatsApp"
-                      }
+                      title={isModificado ? "Grave as alterações primeiro" : "Visualizar e Enviar por WhatsApp"}
                     >
-                      <img
-                        src="/whatsapp.png"
-                        alt="WhatsApp"
-                        className="object-contain w-5 h-5"
-                      />
-                      {isModificado
-                        ? "Grave para Ativar"
-                        : "Enviar para o WhatsApp"}
+                      <img src="/whatsapp.png" alt="WhatsApp" className="object-contain w-5 h-5" />
+                      {isModificado ? "Grave para Ativar" : "Enviar para o WhatsApp"}
                     </button>
 
                     <button
@@ -455,7 +574,7 @@ export default function Treinos() {
         </div>
       )}
 
-      {/*  Chamada Dinâmica do Modal de Cargas */}
+      {/* Modal Histórico de Cargas */}
       <WeightModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -463,11 +582,10 @@ export default function Treinos() {
         exerciseName={modalExerciseName}
       />
 
-      {/* 📱 MODAL PREMIUM: PREVIEW LAYOUT DO WHATSAPP */}
+      {/* Modal Preview WhatsApp */}
       {isPreviewOpen && alunoDestino && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-md overflow-hidden border shadow-2xl bg-neutral-900 border-neutral-800 rounded-2xl">
-            {/* Topo do Modal */}
             <div className="flex items-center justify-between p-4 border-b bg-neutral-950/60 border-neutral-800">
               <div>
                 <h3 className="text-xs font-black tracking-wider text-red-500 uppercase">
@@ -485,42 +603,35 @@ export default function Treinos() {
               </button>
             </div>
 
-            {/* Simulador de Interface de Conversa (Telemóvel) */}
-            <div className="p-4 bg-[#0b141a] max-h-[380px] overflow-y-auto space-y-3 custom-scrollbar relative">
-              {/* Balão de Mensagem Estilo WhatsApp Dark Mode */}
-              <div className="max-w-[85%] ml-auto bg-[#005c4b] text-[#e9edef] rounded-2xl rounded-tr-none p-3 shadow-md border border-[#005c4b]/50 relative">
-                {/* Texto Formatado preservando as quebras de linha (\n) */}
+            <div className="p-4 bg-[#0b141a] max-h-[380px] overflow-y-auto space-y-3 custom-scrollbar">
+              <div className="max-w-[85%] ml-auto bg-[#005c4b] text-[#e9edef] rounded-2xl rounded-tr-none p-3 shadow-md border border-[#005c4b]/50">
                 <pre className="font-sans text-xs leading-relaxed tracking-wide whitespace-pre-wrap">
                   {whatsappTexto}
                 </pre>
-
-                {/* Marcador de Hora Falso à Direita */}
                 <div className="text-[10px] text-[#8696a0] text-right mt-1 font-mono">
-                  {new Date().toLocaleTimeString("pt-PT", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}{" "}
-                  ✔✔
+                  {new Date().toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })} ✔✔
                 </div>
               </div>
             </div>
 
-            {/* Fundo / Botões de Ação */}
             <div className="grid grid-cols-2 gap-3 p-4 border-t bg-neutral-950/40 border-neutral-800">
               <button
-                type="button"
                 onClick={() => setIsPreviewOpen(false)}
                 className="w-full py-2.5 text-xs font-bold border border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer"
               >
                 Ajustar Treino
               </button>
               <button
-                type="button"
                 onClick={() => {
-                  //  Aciona o link nativo por agora (No próximo passo integramos o log/bot)
-                 const url = whatsappService.enviarPlanoTreino(alunoDestino.whatsapp, alunoDestino.nome, exercicios, notes);
-                 if (url) window.open(url, '_blank');
-                 setIsPreviewOpen(false);
+                  const url = whatsappService.enviarPlanoTreino(
+                    alunoDestino.whatsapp,
+                    alunoDestino.nome,
+                    exercicios,
+                    notes,
+                    savedPlanId
+                  );
+                  if (url) window.open(url, "_blank");
+                  setIsPreviewOpen(false);
                 }}
                 className="w-full py-2.5 text-xs font-black uppercase tracking-wider bg-fitnessGym text-white hover:bg-red-700 rounded-xl shadow-lg shadow-red-500/20 transition-all cursor-pointer"
               >

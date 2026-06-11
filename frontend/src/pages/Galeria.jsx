@@ -94,7 +94,7 @@ export default function Galeria() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-2">
           <h1 className="text-3xl font-black tracking-tight">
-            Galeria de <span className="font-extrabold text-red-500">Exercícios</span>
+            Galeria de <span className="font-extrabold text-white-500">Exercícios</span>
           </h1>
           <p className="text-sm text-neutral-400">
             Consulta a biblioteca global de movimentos, execuções corretas e GIFs informativos.
