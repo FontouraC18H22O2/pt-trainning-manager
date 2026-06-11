@@ -8,7 +8,6 @@ module.exports = (req, res, next) => {
     return res.status(401).json({ error: 'Acesso negado. Token não fornecido.' });
   }
 
-  // O cabeçalho vem no formato: "Bearer O_TEU_TOKEN_JWT"
   const partes = authHeader.split(' ');
   if (partes.length !== 2 || partes[0] !== 'Bearer') {
     return res.status(401).json({ error: 'Erro no formato do token de autenticação.' });
@@ -17,14 +16,30 @@ module.exports = (req, res, next) => {
   const token = partes[1];
 
   try {
-    // Validar a assinatura do token
     const verificado = jwt.verify(token, JWT_SECRET);
     
-    // Injetar o userId dentro do objeto req para que os controladores seguintes saibam quem fez o pedido!
     req.userId = verificado.userId;
+    req.userRole = verificado.role;
     
-    return next(); // Avança para o controlador real
+    return next();
   } catch (err) {
     return res.status(401).json({ error: 'Sessão expirada ou Token inválido.' });
   }
+};
+
+module.exports.checkRole = (rolesPermitidos) => {
+  return (req, res, next) => {
+    if (!req.userRole) {
+      return res.status(403).json({ error: 'Acesso proibido. Nível de acesso não identificado.' });
+    }
+
+    const roleFormatado = req.userRole.toUpperCase();
+    const listaFormatada = rolesPermitidos.map(r => r.toUpperCase());
+
+    if (!listaFormatada.includes(roleFormatado)) {
+      return res.status(403).json({ error: 'Acesso negado. Não tem permissão para executar esta ação.' });
+    }
+
+    return next();
+  };
 };

@@ -3,7 +3,8 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Sidebar() {
-  const { logout, user } = useAuth(); // 👈 Extraímos o objeto user adicionado ao contexto
+  // 🔥 ATUALIZADO: Extraímos também o 'role' exposto globalmente pelo teu AuthContext
+  const { logout, user, role } = useAuth(); 
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -19,27 +20,99 @@ export default function Sidebar() {
         : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
     }`;
 
+  // 🔥 NOVO: Verifica se o utilizador atual é um convidado
+  const isGuest = role === 'GUEST';
+
   return (
     <aside className="sticky top-0 flex flex-col justify-between w-64 h-screen p-4 border-r bg-neutral-900 border-neutral-800 shrink-0">
       {/* Bloco Superior: Logo e Navegação */}
       <div className="space-y-8">
-        {/* Logo Brand e Nome do PT */}
+        {/* Logo Brand e Nome do PT / Guest */}
         <div className="px-2 py-4 space-y-2 text-center border-b border-neutral-800">
           <h1 className="text-xl font-bold tracking-tight text-white">
-            PT <span className="text-fitnessGym">Management</span>
+            PT <span className="text-fitnessGym">Control</span>
           </h1>
-          {/* ⚡ Caixa Dinâmica para mostrar o nome do Treinador Logado */}
+          {/* Caixa Dinâmica para mostrar o nome e o cargo do Utilizador Logado */}
           {user && user.nome && (
-            <p className="text-xs text-neutral-400 font-medium truncate bg-neutral-950/50 py-1.5 px-2 rounded-lg border border-neutral-800/40">
-              Treinador:{" "}
-              <span className="font-semibold text-white">{user.nome}</span>
-            </p>
+            <div className="text-xs text-neutral-400 font-medium bg-neutral-950/50 py-1.5 px-2 rounded-lg border border-neutral-800/40 space-y-0.5">
+              <p className="truncate text-neutral-500">
+                Acesso: <span className="font-bold text-fitnessGym">{role}</span>
+              </p>
+              <p className="font-semibold text-white truncate">
+                {user.nome}
+              </p>
+            </div>
           )}
         </div>
 
-        {/* Menu de Links */}
+        {/* Menu de Links Filtrado dinamicamente por Cargo */}
         <nav className="space-y-2">
-          <NavLink to="/dashboard" end className={linkClass}>
+          
+          {/* 1. Visão Geral / Dashboard (Escondido para o Guest, visível para PT/ADMIN) */}
+          {!isGuest && (
+            <NavLink to="/dashboard" end className={linkClass}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              <span>Visão Geral</span>
+            </NavLink>
+          )}
+
+          {/* 2. Gerir Alunos (Escondido para o Guest, visível para PT/ADMIN) */}
+          {!isGuest && (
+            <NavLink to="/dashboard/alunos" className={linkClass}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                />
+              </svg>
+              <span>Gerir Alunos</span>
+            </NavLink>
+          )}
+
+          {/* 3. Planos de Treino (Escondido para o Guest, visível para PT/ADMIN) */}
+          {!isGuest && (
+            <NavLink to="/dashboard/treinos" className={linkClass}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                />
+              </svg>
+              <span>Planos de Treino</span>
+            </NavLink>
+          )}
+
+          {/* 🔥 4. Galeria de Exercícios (Única opção visível para o GUEST, e também acessível a PT/ADMIN) */}
+          <NavLink to="/dashboard/galeria" className={linkClass}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="w-5 h-5"
@@ -51,47 +124,12 @@ export default function Sidebar() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z"
               />
             </svg>
-            <span>Visão Geral</span>
+            <span>Galeria de Exercícios</span>
           </NavLink>
 
-          <NavLink to="/dashboard/alunos" className={linkClass}>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-              />
-            </svg>
-            <span>Gerir Alunos</span>
-          </NavLink>
-
-          <NavLink to="/dashboard/treinos" className={linkClass}>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-              />
-            </svg>
-            <span>Planos de Treino</span>
-          </NavLink>
         </nav>
       </div>
 

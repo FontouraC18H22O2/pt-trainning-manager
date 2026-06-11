@@ -5,37 +5,46 @@ generator client {
 
 datasource db {
   provider = "mysql"
-
 }
+
+// 🔥 1. ADICIONADO: Níveis de acesso válidos para o Controlo de Acessos (RBAC)
+enum Role {
+  ADMIN
+  PT
+  GUEST
+}
+
 // Definição dos modelos de dados
 
 model UserAdmin {
   id             Int       @id @default(autoincrement())
   email          String    @unique // Alterado de username para email para o fluxo JWT convencional
-  nome           String    // Nome do Personal Trainer para exibir na Sidebar/Dashboard
+  nome           String    // Nome do utilizador para exibir na Sidebar/Dashboard
   passwordHash   String    @map("password_hash")
+  
+  // 🔥 2. ADICIONADO: Define as permissões do utilizador (Por padrão é PT)
+  role           Role      @default(PT)
+
   createdAt      DateTime  @default(now()) @map("created_at")
   lastLogin      DateTime? @map("last_login")
   failedAttempts Int       @default(0) @map("failed_attempts")
   isActive       Boolean   @default(true) @map("is_active")
 
-  
   students       Student[]
 
   @@map("users_admin")
 }
 
 model Student {
-  id           Int            @id @default(autoincrement())
-  userAdminId  Int            @map("user_admin_id") // 🔥 ADICIONADO: Liga este aluno ao seu PT criador
-  fullName     String         @map("full_name")
-  phoneNumber  String         @map("phone_number")
-  status       String         @default("Ativo")
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
-  
+  id            Int            @id @default(autoincrement())
+  userAdminId   Int            @map("user_admin_id") // 🔥 Liga este aluno ao seu PT criador
+  fullName      String         @map("full_name")
+  phoneNumber   String         @map("phone_number")
+  status        String         @default("Ativo")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  userAdmin    UserAdmin      @relation(fields: [userAdminId], references: [id], onDelete: Cascade)
+  userAdmin     UserAdmin      @relation(fields: [userAdminId], references: [id], onDelete: Cascade)
 
   trainingPlans TrainingPlan[]
   whatsappLogs  WhatsappLog[]
@@ -45,13 +54,13 @@ model Student {
 }
 
 model TrainingPlan {
-  id          Int      @id @default(autoincrement())
-  studentId   Int      @map("student_id")
-  notes       String?  @db.Text
-  createdAt   DateTime @default(now()) @map("created_at")
+  id        Int        @id @default(autoincrement())
+  studentId Int        @map("student_id")
+  notes     String?    @db.Text
+  createdAt DateTime   @default(now()) @map("created_at")
 
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  exercises   TrainingExercise[]
+  student   Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  exercises TrainingExercise[]
 
   @@map("training_plans")
 }
@@ -68,6 +77,19 @@ model TrainingExercise {
   trainingPlan   TrainingPlan @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
 
   @@map("training_exercises")
+}
+
+// 🔥 3. ADICIONADO: Biblioteca Global de Exercícios (Imagens/GIFs)
+// Gerido pelo Admin, lido pelo PT ao criar treinos, consultado pelo Guest.
+model GlobalExercise {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique // Ex: "Supino Inclinado com Halteres"
+  gifUrl      String?  @map("gif_url") // Guarda o link ou caminho do ficheiro (Ex: "/uploads/supino.gif")
+  category    String   // Ex: "Peito", "Costas", "Pernas"
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("global_exercises")
 }
 
 model WhatsappLog {

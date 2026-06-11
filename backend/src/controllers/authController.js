@@ -33,18 +33,19 @@ const register = async (req, res) => {
         email: email.toLowerCase().trim(),
         nome: nome.trim(),
         passwordHash: hashedPassword,
-        isActive: true
+        isActive: true,
+        role: 'PT' // 🔥 ADICIONADO: Por padrão, novas contas registadas no site ganham o nível de PT
       }
     });
 
-    return res.status(201).json({ message: 'Conta de Personal Trainer criada com sucesso!' });
+    return res.status(201).json({ message: 'Conta criada com sucesso!' });
   } catch (error) {
-    console.error('❌ Erro no processo de registo:', error);
-    return res.status(500).json({ error: 'Erro interno ao criar a conta.' });
+    console.error('Erro no registo:', error);
+    return res.status(500).json({ error: 'Erro interno do servidor ao criar conta.' });
   }
 };
 
-// 2. EFETUAR LOGIN E GERAR TOKEN JWT
+// 2. AUTENTICAR UTILIZADOR (LOGIN)
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -69,9 +70,9 @@ const login = async (req, res) => {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
-    // Gerar o Token JWT contendo o ID e o Nome do PT
+    // 🔥 ATUALIZADO: Gerar o Token JWT contendo o ID, Nome e também o ROLE para segurança nas rotas do backend
     const token = jwt.sign(
-      { userId: user.id, nome: user.nome },
+      { userId: user.id, nome: user.nome, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
@@ -82,19 +83,20 @@ const login = async (req, res) => {
       data: { lastLogin: new Date(), failedAttempts: 0 }
     });
 
+    // 🔥 ATUALIZADO: O objeto de resposta agora envia explicitamente o 'role' para o AuthContext mapear
     return res.status(200).json({
-      message: 'Login efetuado com sucesso!',
+      message: 'Login efetuado com sucesso.',
       token,
       user: {
         id: user.id,
         nome: user.nome,
-        email: user.email
+        email: user.email,
+        role: user.role // 🔥 Enviado para o Frontend ler no localStorage/estado global
       }
     });
-
   } catch (error) {
-    console.error('❌ Erro no processo de login:', error);
-    return res.status(500).json({ error: 'Erro interno no servidor.' });
+    console.error('Erro no login:', error);
+    return res.status(500).json({ error: 'Erro interno do servidor ao processar a autenticação.' });
   }
 };
 

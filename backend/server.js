@@ -4,6 +4,7 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 // 1. Importar todos os módulos de rotas criados (Sem Duplicações)
 const authRoutes = require('./src/routes/authRoutes');
@@ -12,12 +13,13 @@ const trainingRoutes = require('./src/routes/trainingRoutes');
 const whatsappRoutes = require('./src/routes/whatsappRoutes');
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
 const weightRoutes = require('./src/routes/weightRoutes');
+const exerciseRoutes = require('./src/routes/exerciseRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 2. Middlewares Globais de Segurança e Performance
-app.use(helmet());
+app.use(helmet({crossOriginResourcePolicy: { policy: "cross-origin" }}));
 
 app.use(cors({
   origin: 'http://localhost:5173', // Porta padrão do React Vite
@@ -40,7 +42,7 @@ app.use(limiter);
 
 // 3. Permitir que o Express interprete corpos de mensagem em JSON (Obrigatório)
 app.use(express.json());
-
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 // --- 4. REGISTO OFICIAL DAS ROTAS DA API ---
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
@@ -48,6 +50,7 @@ app.use('/api/training', trainingRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/weights', weightRoutes);
+app.use('/api/exercises', exerciseRoutes);
 
 // Rota de Teste de Diagnóstico
 app.get('/api/status', (req, res) => {

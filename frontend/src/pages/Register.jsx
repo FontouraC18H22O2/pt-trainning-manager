@@ -1,21 +1,21 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const [nome, setNome] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [erro, setErro] = useState('');
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
   const [sucesso, setSucesso] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErro('');
+    setErro("");
     setLoading(true);
 
     try {
@@ -23,7 +23,7 @@ export default function Register() {
       setSucesso(true);
       // Aguarda 2 segundos para o utilizador ler a mensagem de sucesso e redireciona para o login
       setTimeout(() => {
-        navigate('/');
+        navigate("/");
       }, 2000);
     } catch (err) {
       setErro(err.message);
@@ -33,15 +33,16 @@ export default function Register() {
   };
 
   return (
-    <div className="flex items-center justify-center w-full min-h-screen p-4 bg-neutral-950">
-      <div className="w-full max-w-md p-8 space-y-6 border shadow-2xl bg-neutral-900 border-neutral-800 rounded-2xl">
-        
+    <div className="flex items-center justify-center w-full min-h-screen p-4 bg-neutral-950 bg-gradient-to-br from-neutral-950 via-red-950/10 to-neutral-950 relative overflow-hidden before:absolute before:inset-0 before:bg-[linear-gradient(45deg,transparent_45%,rgba(220,38,38,0.04)_48%,rgba(220,38,38,0.08)_50%,rgba(220,38,38,0.04)_52%,transparent_55%)] before:pointer-events-none">
+      <div className="relative z-10 w-full max-w-md p-8 space-y-6 border shadow-2xl bg-neutral-900 border-neutral-800 rounded-2xl">
         {/* Cabeçalho */}
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-black tracking-tight text-white">
-            Criar Conta <span className="text-fitnessGym">PT</span>
+            Criar Conta <span className="text-fitnessGym"></span>
           </h1>
-          <p className="text-sm text-neutral-400">Registe o seu perfil para começar a gerir os seus Alunos</p>
+          <p className="text-sm text-neutral-400">
+            Registe o seu perfil para começar a gerir os seus Alunos
+          </p>
         </div>
 
         {/* Alertas de Erro ou Sucesso */}
@@ -60,7 +61,9 @@ export default function Register() {
         {/* Formulário */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-neutral-300">Nome Completo</label>
+            <label className="text-xs font-semibold text-neutral-300">
+              Nome Completo
+            </label>
             <input
               type="text"
               placeholder="Ex: Pedro Silva"
@@ -73,7 +76,9 @@ export default function Register() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-neutral-300">Endereço de Email</label>
+            <label className="text-xs font-semibold text-neutral-300">
+              Endereço de Email
+            </label>
             <input
               type="email"
               placeholder="exemplo@ginasio.com"
@@ -86,7 +91,9 @@ export default function Register() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-neutral-300">Password de Acesso</label>
+            <label className="text-xs font-semibold text-neutral-300">
+              Password de Acesso
+            </label>
             <input
               type="password"
               placeholder="••••••••"
@@ -103,17 +110,20 @@ export default function Register() {
             disabled={loading || sucesso}
             className="w-full py-3 mt-2 text-sm font-black tracking-wider text-white uppercase transition-all duration-200 shadow-lg cursor-pointer rounded-xl bg-fitnessGym shadow-red-500/10 hover:bg-red-700 disabled:opacity-40"
           >
-            {loading ? 'A processar...' : 'Finalizar Registo'}
+            {loading ? "A processar..." : "Finalizar Registo"}
           </button>
         </form>
 
         {/* Link para voltar ao Login */}
         <div className="pt-2 text-center">
-          <Link to="/" className="text-xs font-medium transition-colors text-neutral-400 hover:text-fitnessGym">
-            Já tem uma conta? <span className="font-bold underline">Faça Login aqui!</span>
+          <Link
+            to="/"
+            className="text-xs font-medium transition-colors text-neutral-400 hover:text-fitnessGym"
+          >
+            Já tem uma conta?{" "}
+            <span className="font-bold underline">Faça Login aqui!</span>
           </Link>
         </div>
-
       </div>
     </div>
   );

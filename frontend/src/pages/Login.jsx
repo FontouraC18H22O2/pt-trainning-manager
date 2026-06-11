@@ -41,12 +41,12 @@ export default function Login() {
   };
 
   return (
-    <div className="flex items-center justify-center w-full min-h-screen p-4 bg-neutral-950">
-      <div className="w-full max-w-md p-8 space-y-6 border shadow-2xl bg-neutral-900 border-neutral-800 rounded-2xl">
+    <div className="flex items-center justify-center w-full min-h-screen p-4 bg-neutral-950 bg-gradient-to-br from-neutral-950 via-red-950/10 to-neutral-950 relative overflow-hidden before:absolute before:inset-0 before:bg-[linear-gradient(45deg,transparent_45%,rgba(220,38,38,0.04)_48%,rgba(220,38,38,0.08)_50%,rgba(220,38,38,0.04)_52%,transparent_55%)] before:pointer-events-none">
+        <div className="relative z-10 w-full max-w-md p-8 space-y-6 border shadow-2xl bg-neutral-900 border-neutral-800 rounded-2xl">
         
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-black text-white">
-            PT <span className="text-fitnessGym">Management</span>
+            PT <span className="text-fitnessGym">Control</span>
           </h1>
           <p className="text-sm text-neutral-400">Insira as suas credenciais de treinador</p>
         </div>
@@ -94,7 +94,7 @@ export default function Login() {
         {/* ⚡ NOVO: Link para o ecrã de registo que vamos mapear a seguir */}
         <div className="pt-2 text-center">
           <Link to="/register" className="text-xs font-medium transition-colors text-neutral-400 hover:text-fitnessGym">
-            Não tem uma conta de PT? <span className="font-bold underline">Crie uma aqui</span>
+            Não tem uma conta? <span className="font-bold underline">Crie uma aqui</span>
           </Link>
         </div>
 

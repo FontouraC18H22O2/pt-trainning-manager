@@ -7,17 +7,20 @@ const AuthContext = createContext(null);
 // Provedor do Contexto (Wrapper global)
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null); // 🔥 ADICIONADO: Estado para guardar o Personal Trainer logado
+  const [user, setUser] = useState(null); 
+  const [role, setRole] = useState(null); // 🔥 NOVO: Estado para guardar o nível de acesso (ADMIN, PT, GUEST)
   const [loading, setLoading] = useState(true);
 
   // Efeito executado ao iniciar a aplicação para recuperar o token e dados guardados
   useEffect(() => {
     const storedToken = localStorage.getItem('pt_api_token');
-    const storedUser = localStorage.getItem('pt_api_user'); // 🔥 ADICIONADO: Recuperar os dados do PT
+    const storedUser = localStorage.getItem('pt_api_user'); 
+    const storedRole = localStorage.getItem('pt_api_role'); // 🔥 NOVO: Recuperar o role guardado
 
-    if (storedToken && storedUser) {
+    if (storedToken && storedUser && storedRole) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
+      setRole(storedRole); // 🔥 NOVO: Injetar o role no estado ao iniciar a app
       
       // Define o token por padrão para todos os pedidos HTTP futuros do Axios
       axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
@@ -28,13 +31,15 @@ export function AuthProvider({ children }) {
   // 🔥 ATUALIZADO: Função para registar o login com sucesso recebendo os dados do backend
   const login = (newToken, userData) => {
     localStorage.setItem('pt_api_token', newToken);
-    localStorage.setItem('pt_api_user', JSON.stringify(userData)); // Guardar os dados do PT (id, nome, email)
+    localStorage.setItem('pt_api_user', JSON.stringify(userData)); 
+    localStorage.setItem('pt_api_role', userData.role); // 🔥 NOVO: Guardar o nível de acesso no localStorage
     
     // Injeta o token no cabeçalho padrão do Axios
     axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
     
     setToken(newToken);
     setUser(userData);
+    setRole(userData.role); // 🔥 NOVO: Injetar o role no estado global
   };
 
   // 🔥 ADICIONADO: Função para comunicar com o endpoint de criar conta (registo)
@@ -56,13 +61,15 @@ export function AuthProvider({ children }) {
   // 🔥 ATUALIZADO: Função para fazer logout e limpar todo o sistema
   const logout = () => {
     localStorage.removeItem('pt_api_token');
-    localStorage.removeItem('pt_api_user'); // Limpar dados do PT
+    localStorage.removeItem('pt_api_user'); 
+    localStorage.removeItem('pt_api_role'); // 🔥 NOVO: Limpar o nível de acesso do localStorage
     
     // Remove o cabeçalho de autorização do Axios
     delete axios.defaults.headers.common['Authorization'];
     
     setToken(null);
     setUser(null);
+    setRole(null); // 🔥 NOVO: Limpar o estado do role
   };
 
   // Enquanto verifica o localStorage, evita renderizar caminhos errados
@@ -78,9 +85,10 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{ 
       isAuthenticated: !!token, 
       token, 
-      user, // 🔥 Exposto para a Sidebar poder ler user.nome
+      user, 
+      role, // 🔥 NOVO: Exposto globalmente para que as páginas e a Sidebar saibam o nível do utilizador
       login, 
-      register, // 🔥 Exposto para a página de Registo utilizar
+      register, 
       logout 
     }}>
       {children}

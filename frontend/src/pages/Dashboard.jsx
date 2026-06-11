@@ -58,7 +58,7 @@ export default function Dashboard() {
         </h1>
         <p className="mt-1 text-sm text-neutral-400">
           Bem-vindo de volta! Aqui está o resumo operacional e de retenção dos
-          teus atletas.
+          teus alunos.
         </p>
       </div>
 
@@ -150,7 +150,7 @@ export default function Dashboard() {
             {taxaAtividade}%
           </div>
           <div className="text-xs font-bold tracking-widest uppercase text-neutral-500">
-            Atletas Engajados
+            Alunos Alistrados
           </div>
         </div>
       </div>

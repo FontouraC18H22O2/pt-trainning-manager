@@ -21,9 +21,13 @@ export default function Treinos() {
   const [message, setMessage] = useState({ type: "", text: "" });
   const [isModificado, setIsModificado] = useState(false);
 
-  // 🔥 Estados de Controlo do Modal de Histórico de Cargas
+  //  Estados de Controlo do Modal de Histórico de Cargas
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalExerciseName, setModalExerciseName] = useState("");
+  // Modal de Previsualização do Plano Completo antes de Enviar para o WhatsApp
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [whatsappTexto, setWhatsappTexto] = useState("");
+  const [alunoDestino, setAlunoDestino] = useState(null);
 
   // Carregar lista de alunos para a caixa de seleção (Select)
   useEffect(() => {
@@ -133,7 +137,7 @@ export default function Treinos() {
       };
 
       await trainingService.saveTrainingPlan(payload);
-      
+
       // Recarrega o plano para puxar os IDs corretos gerados pelo MySQL/Prisma
       await carregarPlanoAluno(alunoSelecionadoId);
 
@@ -148,12 +152,23 @@ export default function Treinos() {
     }
   };
 
-  // 🔥 Função auxiliar para abrir a janela de histórico
+  //  Função auxiliar para abrir a janela de histórico
   const handleOpenWeights = (exerciseName) => {
     setModalExerciseName(exerciseName);
     setIsModalOpen(true);
   };
+  const handleAbrirPreviewWhatsApp = () => {
+  const aluno = alunos.find(a => a.id === parseInt(alunoSelecionadoId));
+  if (!aluno) return;
 
+  setAlunoDestino(aluno);
+
+  //  INDO BUSCAR DIRETAMENTE AO SERVIÇO: O texto exato e padronizado!
+  const textoMapeado = whatsappService.gerarTextoMensagem(aluno.nome, exercicios, notes);
+
+  setWhatsappTexto(textoMapeado);
+  setIsPreviewOpen(true);
+};
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
@@ -162,7 +177,8 @@ export default function Treinos() {
           Prescrever Treinos
         </h1>
         <p className="mt-1 text-sm text-neutral-400">
-          Selecione um atleta ativo e monte a sua rotina de exercícios personalizada.
+          Selecione um aluno ativo e monte a sua rotina de exercícios
+          personalizada.
         </p>
       </div>
 
@@ -351,20 +367,28 @@ export default function Treinos() {
                                 <div className="flex items-center justify-end gap-3">
                                   {/* 🔥 Botão de Cargas (Apenas ativo se o plano/exercício estiver sincronizado no MySQL e não houver edições pendentes) */}
                                   <button
-                                    onClick={() => handleOpenWeights(ex.exerciseName)}
+                                    onClick={() =>
+                                      handleOpenWeights(ex.exerciseName)
+                                    }
                                     disabled={isModificado}
                                     className={`text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
-                                      isModificado 
-                                        ? 'text-neutral-600 cursor-not-allowed opacity-40' 
-                                        : 'text-fitnessGym hover:text-emerald-400'
+                                      isModificado
+                                        ? "text-neutral-600 cursor-not-allowed opacity-40"
+                                        : "text-fitnessGym hover:text-emerald-400"
                                     }`}
-                                    title={isModificado ? "Sincronize primeiro as alterações no MySQL" : "Registar/Ver Cargas"}
+                                    title={
+                                      isModificado
+                                        ? "Sincronize primeiro as alterações no MySQL"
+                                        : "Registar/Ver Cargas"
+                                    }
                                   >
                                     📈 Cargas
                                   </button>
 
                                   <button
-                                    onClick={() => handleRemoveExercicioLocal(index)}
+                                    onClick={() =>
+                                      handleRemoveExercicioLocal(index)
+                                    }
                                     className="text-xs font-medium text-red-400 transition-colors cursor-pointer hover:text-red-500"
                                   >
                                     Remover
@@ -379,7 +403,8 @@ export default function Treinos() {
                               colSpan="6"
                               className="p-6 text-xs italic text-center text-neutral-600"
                             >
-                              Nenhum exercício adicionado a este plano de treino. Comece a injetar no painel lateral.
+                              Nenhum exercício adicionado a este plano de
+                              treino. Comece a injetar no painel lateral.
                             </td>
                           </tr>
                         )}
@@ -390,39 +415,35 @@ export default function Treinos() {
                   {/* Painel Inferior de Gravação e Envio */}
                   <div className="flex justify-end gap-3 pt-2">
                     <button
-                      onClick={() => {
-                        const alunoAtual = alunos.find(
-                          (a) => a.id === parseInt(alunoSelecionadoId),
-                        );
-                        if (!alunoAtual) return;
-
-                        const urlUrl = whatsappService.enviarPlanoTreino(
-                          alunoAtual.whatsapp,
-                          alunoAtual.nome,
-                          exercicios,
-                          notes,
-                        );
-
-                        if (urlUrl) {
-                          window.open(urlUrl, "_blank");
-                        }
-                      }}
-                      disabled={exercicios.length === 0 || isModificado}
+                      onClick={handleAbrirPreviewWhatsApp} // 📱 Dispara o nosso Preview interativo
+                      disabled={
+                        exercicios.length === 0 ||
+                        isModificado ||
+                        !alunoSelecionadoId
+                      }
                       className="px-5 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-semibold text-sm transition-colors cursor-pointer border border-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-                      title={isModificado ? "Grave as alterações primeiro" : "Enviar por WhatsApp"}
+                      title={
+                        !alunoSelecionadoId
+                          ? "Selecione um aluno primeiro"
+                          : isModificado
+                            ? "Grave as alterações primeiro"
+                            : "Visualizar e Enviar por WhatsApp"
+                      }
                     >
                       <img
                         src="/whatsapp.png"
                         alt="WhatsApp"
                         className="object-contain w-5 h-5"
                       />
-                      {isModificado ? "Grave para Ativar" : "Enviar para o WhatsApp"}
+                      {isModificado
+                        ? "Grave para Ativar"
+                        : "Enviar para o WhatsApp"}
                     </button>
 
                     <button
                       onClick={handleSavePlanoGeral}
                       disabled={loading}
-                     className="px-6 py-2.5 rounded-xl bg-fitnessGym hover:bg-red-700 text-white font-bold text-sm transition-all duration-200 cursor-pointer shadow-lg shadow-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-6 py-2.5 rounded-xl bg-fitnessGym hover:bg-red-700 text-white font-bold text-sm transition-all duration-200 cursor-pointer shadow-lg shadow-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {loading ? "A Gravar..." : "Sincronizar Plano no MySQL"}
                     </button>
@@ -434,13 +455,81 @@ export default function Treinos() {
         </div>
       )}
 
-      {/* 🔥 Chamada Dinâmica do Modal de Cargas */}
-      <WeightModal 
+      {/*  Chamada Dinâmica do Modal de Cargas */}
+      <WeightModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         studentId={alunoSelecionadoId}
         exerciseName={modalExerciseName}
       />
+
+      {/* 📱 MODAL PREMIUM: PREVIEW LAYOUT DO WHATSAPP */}
+      {isPreviewOpen && alunoDestino && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md overflow-hidden border shadow-2xl bg-neutral-900 border-neutral-800 rounded-2xl">
+            {/* Topo do Modal */}
+            <div className="flex items-center justify-between p-4 border-b bg-neutral-950/60 border-neutral-800">
+              <div>
+                <h3 className="text-xs font-black tracking-wider text-red-500 uppercase">
+                  Confirmação de Envio
+                </h3>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Destinatário: {alunoDestino.nome}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsPreviewOpen(false)}
+                className="p-1 text-sm transition-colors cursor-pointer text-neutral-500 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Simulador de Interface de Conversa (Telemóvel) */}
+            <div className="p-4 bg-[#0b141a] max-h-[380px] overflow-y-auto space-y-3 custom-scrollbar relative">
+              {/* Balão de Mensagem Estilo WhatsApp Dark Mode */}
+              <div className="max-w-[85%] ml-auto bg-[#005c4b] text-[#e9edef] rounded-2xl rounded-tr-none p-3 shadow-md border border-[#005c4b]/50 relative">
+                {/* Texto Formatado preservando as quebras de linha (\n) */}
+                <pre className="font-sans text-xs leading-relaxed tracking-wide whitespace-pre-wrap">
+                  {whatsappTexto}
+                </pre>
+
+                {/* Marcador de Hora Falso à Direita */}
+                <div className="text-[10px] text-[#8696a0] text-right mt-1 font-mono">
+                  {new Date().toLocaleTimeString("pt-PT", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}{" "}
+                  ✔✔
+                </div>
+              </div>
+            </div>
+
+            {/* Fundo / Botões de Ação */}
+            <div className="grid grid-cols-2 gap-3 p-4 border-t bg-neutral-950/40 border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(false)}
+                className="w-full py-2.5 text-xs font-bold border border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer"
+              >
+                Ajustar Treino
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  //  Aciona o link nativo por agora (No próximo passo integramos o log/bot)
+                 const url = whatsappService.enviarPlanoTreino(alunoDestino.whatsapp, alunoDestino.nome, exercicios, notes);
+                 if (url) window.open(url, '_blank');
+                 setIsPreviewOpen(false);
+                }}
+                className="w-full py-2.5 text-xs font-black uppercase tracking-wider bg-fitnessGym text-white hover:bg-red-700 rounded-xl shadow-lg shadow-red-500/20 transition-all cursor-pointer"
+              >
+                 Enviar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
