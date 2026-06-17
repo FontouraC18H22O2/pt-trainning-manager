@@ -223,22 +223,34 @@ const login = async (req, res) => {
       where: { email: email.toLowerCase().trim() }
     });
 
-    if (!user || !user.isActive) {
-      return res.status(401).json({ error: 'Credenciais inválidas.' });
+    // 1. Verificar primeiro se o utilizador existe na Base de Dados
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciais incorretas.' });
     }
 
+    // 🔥 2. SEPARADO: Se o utilizador existe mas está SUSPENSO (isActive === false)
+    if (!user.isActive) {
+      return res.status(403).json({ 
+        error: 'Acesso Suspenso',
+        message: 'A tua conta de acesso encontra-se desativada temporariamente. Por favor, contacta o administrador global para restabelecer o teu acesso.'
+      });
+    }
+
+    // 3. Validar a palavra-passe
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     
     if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Credenciais inválidas.' });
+      return res.status(401).json({ error: 'Credenciais incorretas.' });
     }
 
+    // 4. Gerar o token JWT de acesso
     const token = jwt.sign(
       { userId: user.id, nome: user.nome, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
+    // 5. Atualizar os metadados de auditoria de login
     await prisma.userAdmin.update({
       where: { id: user.id },
       data: { lastLogin: new Date(), failedAttempts: 0 }
@@ -699,16 +711,62 @@ const atualizarPerfil = async (req, res) => {
   }
 };
 
-// Lembra-te de exportar a nova função no final do ficheiro:
+const activateTrainer = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.userAdmin.update({
+      where: { id: parseInt(id) },
+      data: { isActive: true } 
+    });
+
+    return res.status(200).json({ message: 'Acesso do Personal Trainer reativado com sucesso!' });
+  } catch (error) {
+    console.error('Erro ao reativar PT:', error);
+    return res.status(500).json({ error: 'Erro interno ao reativar o utilizador.' });
+  }
+};
+
+const permanentlyDeleteTrainer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const ptId = parseInt(id);
+
+    // Impedir o Admin de apagar um PT que ainda tenha alunos vinculados
+    const temAlunos = await prisma.student.findFirst({
+      where: { userAdminId: ptId }
+    });
+
+    if (temAlunos) {
+      return res.status(400).json({ 
+        error: 'Não é possível eliminar este PT.', 
+        message: 'Este treinador ainda possui alunos associados na base de dados. Suspenda a conta ou transfira os alunos antes de a remover.' 
+      });
+    }
+
+    await prisma.userAdmin.delete({
+      where: { id: ptId }
+    });
+
+    return res.status(200).json({ message: 'Conta do Personal Trainer removida permanentemente do sistema.' });
+  } catch (error) {
+    console.error('Erro ao eliminar PT:', error);
+    return res.status(500).json({ error: 'Erro ao expurgar o utilizador do servidor.' });
+  }
+};
+
+// Certifica-te de que no final do ficheiro estás a exportar juntamente com as outras:
 module.exports = {
   requestAccess,
-  createTrainerAccount,
   login,
+  createTrainerAccount,
   getTrainers,
   deactivateTrainer,
   getTrainerMetrics,
-  getPendingAccessRequests,    
+  getPendingAccessRequests,
   updateAccessRequestStatus,
+  activateTrainer,
+  permanentlyDeleteTrainer,
   solicitarCodigoPerfil,
   atualizarPerfil
 };

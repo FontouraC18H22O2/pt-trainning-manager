@@ -96,3 +96,36 @@ export const updateAccessRequestStatus = async (id, status) => {
     throw new Error(msgErro);
   }
 };
+
+
+/**
+ * Reativa o acesso de um Personal Trainer suspenso.
+ * @param {number|string} id - ID único do utilizador a reativar
+ * @returns {Promise<Object>} Mensagem de sucesso do servidor
+ */
+export const activateTrainer = async (id) => {
+  try {
+    const response = await api.patch(`/auth/admin/activate-trainer/${id}`);
+    return response.data;
+  } catch (error) {
+    const msgErro = error.response?.data?.error || 'Erro ao restabelecer o acesso do treinador.';
+    console.error('❌ Erro em adminService -> activateTrainer:', msgErro);
+    throw new Error(msgErro);
+  }
+};
+
+/**
+ * Elimina de forma definitiva um utilizador (PT) do sistema.
+ * @param {number|string} id - ID único do utilizador a expurgar
+ * @returns {Promise<Object>} Mensagem de sucesso do servidor
+ */
+export const permanentlyDeleteTrainer = async (id) => {
+  try {
+    const response = await api.delete(`/auth/admin/delete-trainer/${id}`);
+    return response.data;
+  } catch (error) {
+    const msgErro = error.response?.data?.error || 'Erro ao eliminar permanentemente o treinador.';
+    console.error('❌ Erro em adminService -> permanentlyDeleteTrainer:', msgErro);
+    throw new Error(msgErro);
+  }
+};

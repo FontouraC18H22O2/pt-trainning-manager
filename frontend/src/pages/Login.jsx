@@ -11,14 +11,18 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // 🔥 Única adição de estado: Para sabermos se o erro é de conta suspensa
+  const [alerta, setAlerta] = useState({ tipo: '', mensagem: '' });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErro('');
+    setAlerta({ tipo: '', mensagem: '' });
     setLoading(true);
 
     try {
-      // 🚀 Faz o pedido para o endpoint correto do Backend
+      // Faz o pedido para o endpoint correto do Backend
       const response = await axios.post('http://localhost:5000/api/auth/login', {
         email: email.toLowerCase().trim(),
         password
@@ -34,7 +38,20 @@ export default function Login() {
       navigate('/dashboard');
     } catch (err) {
       console.error(err);
-      setErro(err.response?.data?.error || 'Falha no login. Verifique as suas credenciais.');
+      
+      const statusServidor = err.response?.status;
+      const dadosErro = err.response?.data;
+
+      // 🔥 Tratar especificamente o bloqueio de suspensão 403
+      if (statusServidor === 403 && dadosErro?.error === 'Acesso Suspenso') {
+        setAlerta({
+          tipo: 'SUSPENSO',
+          mensagem: dadosErro.message
+        });
+      } else {
+        // Erros comuns continuam a usar o teu estado 'erro' original
+        setErro(dadosErro?.error || 'Falha no login. Verifique as suas credenciais.');
+      }
     } finally {
       setLoading(false);
     }
@@ -51,9 +68,21 @@ export default function Login() {
           <p className="text-sm text-neutral-400">Insira as suas credenciais de treinador</p>
         </div>
 
+        {/* ⚠️ O teu bloco de erro original */}
         {erro && (
           <div className="p-3 text-xs text-red-400 border bg-red-500/10 border-red-500/20 rounded-xl">
             ⚠️ {erro}
+          </div>
+        )}
+
+        {/* 🔥 NOVO BLOCO DE AVISO: Quando a conta está suspensa (Visual Âmbar) */}
+        {alerta.tipo === 'SUSPENSO' && (
+          <div className="p-4 space-y-1 text-xs border text-amber-400 bg-amber-500/5 border-amber-500/20 rounded-xl">
+            <div className="font-bold tracking-wider uppercase">⏸️ Conta Desativada</div>
+            <p className="font-normal leading-relaxed text-neutral-300">{alerta.mensagem}</p>
+            <div className="pt-1.5 border-t border-amber-500/10 text-[10px] text-neutral-400">
+              Caso restem dúvidas, contacte o suporte em: <span className="font-semibold underline text-amber-400">admin@ispgayafitness.pt</span>
+            </div>
           </div>
         )}
 
@@ -91,7 +120,7 @@ export default function Login() {
           </button>
         </form>
 
-        {/* ⚡ NOVO: Link para o ecrã de registo que vamos mapear a seguir */}
+        {/* ⚡ Link para o ecrã de registo original */}
         <div className="pt-2 text-center">
           <Link to="/register" className="text-xs font-medium transition-colors text-neutral-400 hover:text-fitnessGym">
             Não tem uma conta? <span className="font-bold underline">Peça uma aqui!</span>

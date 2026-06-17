@@ -3,6 +3,7 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const authMiddleware = require('../middlewares/authMiddleware'); 
 
+
 // 📢 Rota pública para Solicitação de Acesso
 router.post('/request-access', authController.requestAccess);
 
@@ -30,6 +31,20 @@ router.patch(
   authMiddleware, 
   authMiddleware.checkRole(['ADMIN']), 
   authController.deactivateTrainer
+);
+router.patch(
+  '/admin/activate-trainer/:id', 
+  authMiddleware, 
+  authMiddleware.checkRole(['ADMIN']), 
+  authController.activateTrainer // Função a criar no teu authController
+);
+
+
+router.delete(
+  '/admin/delete-trainer/:id', 
+  authMiddleware, 
+  authMiddleware.checkRole(['ADMIN']), 
+  authController.permanentlyDeleteTrainer // Função a criar no teu authController
 );
 
 router.get(
