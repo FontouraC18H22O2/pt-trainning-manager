@@ -19,16 +19,31 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 2. Middlewares Globais de Segurança e Performance
-// 2. Middlewares Globais de Segurança e Performance
 app.use(helmet({crossOriginResourcePolicy: { policy: "cross-origin" }}));
 
+// Configuração Dinâmica e Segura do CORS
+const allowedOrigins = [
+  'https://pt-control.vercel.app',            // Domínio principal de produção na Vercel
+  'http://localhost:5173',                    // Ambiente de desenvolvimento local do Vite
+  process.env.FRONTEND_URL                    // Fallback para qualquer variável definida no Railway
+].filter(Boolean); // Remove valores nulos ou indefinidos
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], 
+  origin: function (origin, callback) {
+    // Permite pedidos sem origem (ex: Postman, ferramentas de monitorização ou chamadas internas)
+    if (!origin) return callback(null, true);
+    
+    // Verifica se a origem está na lista de permitidos OU se termina em .vercel.app
+    if (allowedOrigins.indexOf(origin) !== -1 || /\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Bloqueado pela política CORS do PT Control'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], 
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
-
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 100, // Limite de pedidos por IP
