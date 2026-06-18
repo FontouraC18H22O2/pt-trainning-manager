@@ -2,7 +2,7 @@ require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
-// 💡 Em produção na nuvem, inicializa-se o Prisma de forma limpa, sem adaptadores manuais
+// 🔥 Limpo e sem adaptadores manuais para funcionar perfeitamente na Cloud!
 const prisma = new PrismaClient();
 
 async function main() {
@@ -15,7 +15,7 @@ async function main() {
   const saltRounds = 10;
   const passwordHash = await bcrypt.hash(passwordCrua, saltRounds);
 
-  // Verificar se o admin já existe para não duplicar dados se correr mais que uma vez
+  // Verificar se o admin já existe
   const adminExiste = await prisma.userAdmin.findUnique({
     where: { email: emailPT }
   });
