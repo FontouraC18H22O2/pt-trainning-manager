@@ -23,7 +23,7 @@ export default function Login() {
 
     try {
       // Faz o pedido para o endpoint correto do Backend
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
+      const response = await axios.post('/auth/login', {
         email: email.toLowerCase().trim(),
         password
       });
