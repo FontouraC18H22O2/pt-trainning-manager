@@ -28,7 +28,7 @@ model UserAdmin {
   isActive       Boolean   @default(true) @map("is_active")
   mustChangePassword Boolean @default(true) @map("must_change_password")
 
-  students       Student[]
+  students       Student[] 
   exercises          GlobalExercise[]
   @@map("users_admin")
 }
