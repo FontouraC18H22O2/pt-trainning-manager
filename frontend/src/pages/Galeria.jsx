@@ -161,12 +161,13 @@ export default function Galeria() {
         </div>
         
         {/* Qualquer PT ou ADMIN pode adicionar os seus exercícios */}
-        <button
+        <button 
           onClick={handleOpenCreateModal}
-          className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase rounded-xl transition-all shadow-lg shadow-red-600/10 cursor-pointer text-center"
+         className="bg-fitnessGym hover:bg-red-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-lg shadow-red-500/10 flex items-center gap-2 text-sm cursor-pointer"
         >
-          ➕ Adicionar Exercício
+          + Adicionar Exercício
         </button>
+        
       </div>
 
       {/* Filtros de Categorias */}
