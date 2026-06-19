@@ -471,7 +471,7 @@ const updateAccessRequestStatus = async (req, res) => {
           </div>
 
           <div style="text-align: center; margin: 25px 0;">
-            <a href="https://pt-control.vercel.app/login" style="background-color: #dc2626; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
+            <a href="https://pt-control.vercel.app/" style="background-color: #dc2626; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
               Aceder à Plataforma
             </a>
           </div>
