@@ -12,14 +12,12 @@ const requestAccess = async (req, res) => {
   try {
     const { nome, email, mensagem } = req.body;
 
-    // 1. Validação básica de campos obrigatórios
     if (!nome || !email) {
       return res.status(400).json({ 
         error: 'Por favor, preencha o seu nome e email.' 
       });
     }
 
-    // 2. Verificar se o e-mail já pertence a um utilizador ativo no sistema
     const userExiste = await prisma.userAdmin.findUnique({
       where: { email: email.toLowerCase().trim() }
     });
@@ -30,19 +28,17 @@ const requestAccess = async (req, res) => {
       });
     }
 
-    // 3. 🔥 NOVO: Gravar o pedido na base de dados MariaDB com status 'Pendente'
     const novoPedido = await prisma.accessRequest.create({
       data: {
         nome: nome.trim(),
         email: email.toLowerCase().trim(),
         mensagem: mensagem ? mensagem.trim() : null,
-        status: 'Pendente' // Definido explicitamente (embora já seja o default do schema)
+        status: 'Pendente'
       }
     });
 
     console.log(`💾 Pedido de acesso guardado na BD com ID: ${novoPedido.id}`);
 
-    // 4. Enviar o Email de Notificação para o ADMINISTRADOR
     const adminHtml = `
       <div style="font-family: sans-serif; background-color: #0a0a0a; color: #ffffff; padding: 25px; border-radius: 16px; border: 1px solid #262626; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #ef4444; margin-top: 0;">⚠️ Nova Solicitação de Acesso</h2>
@@ -61,7 +57,6 @@ const requestAccess = async (req, res) => {
       </div>
     `;
 
-    // 5. Enviar o Email de Feedback para o UTILIZADOR
     const userHtml = `
       <div style="font-family: sans-serif; background-color: #0a0a0a; color: #ffffff; padding: 25px; border-radius: 16px; border: 1px solid #262626; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #ef4444; margin-top: 0;">Olá ${nome}, recebemos o teu pedido!</h2>
@@ -81,25 +76,32 @@ const requestAccess = async (req, res) => {
       </div>
     `;
 
-    // Dispara os e-mails de forma assíncrona usando o teu serviço existente
-    await emailService.sendEmail({
-      to: process.env.EMAIL_USER, // Admin recebe
-      subject: `[⚠️ NOVO PEDIDO] ${nome} solicita acesso à plataforma`,
-      html: adminHtml
-    });
+    // 🔒 PROTEÇÃO DE EMAIL: Impede o servidor de crashar caso o serviço SMTP falhe
+    try {
+      // Corrigido para process.env.EMAIL_USER que é o que está mapeado no emailService
+      await emailService.sendEmail({
+        to: process.env.EMAIL_USER || 'admin@gym.com', 
+        subject: `[⚠️ NOVO PEDIDO] ${nome} solicita acesso à plataforma`,
+        html: adminHtml
+      });
 
-    await emailService.sendEmail({
-      to: email, // Utilizador recebe
-      subject: 'Ficamos com o teu pedido! Plataforma Fitness em Análise',
-      html: userHtml
-    });
+      await emailService.sendEmail({
+        to: email, 
+        subject: 'Ficamos com o teu pedido! Plataforma Fitness em Análise',
+        html: userHtml
+      });
+      console.log('📧 E-mails de notificação e feedback enviados com sucesso.');
+    } catch (emailError) {
+      console.warn('⚠️ O pedido de acesso foi guardado, mas o envio de e-mails falhou:', emailError.message);
+    }
 
+    // Retorna SEMPRE status 200/201 para o frontend não quebrar
     return res.status(200).json({ 
-      message: 'Solicitação registada com sucesso. Verifica a tua caixa de entrada!' 
+      message: 'Solicitação registada com sucesso. Aguarda a aprovação do administrador!' 
     });
 
   } catch (error) {
-    console.error('❌ Erro ao processar solicitação de acesso:', error);
+    console.error('❌ Erro crítico ao processar solicitação de acesso:', error);
     return res.status(500).json({ 
       error: 'Erro interno', 
       message: 'Não foi possível processar o pedido. Tenta novamente mais tarde.' 
@@ -406,7 +408,6 @@ const updateAccessRequestStatus = async (req, res) => {
       return res.status(400).json({ error: 'ID do pedido inválido.' });
     }
 
-    // 1. Verificar se o pedido existe
     const pedidoExiste = await prisma.accessRequest.findUnique({
       where: { id: pedidoId }
     });
@@ -415,16 +416,13 @@ const updateAccessRequestStatus = async (req, res) => {
       return res.status(404).json({ error: 'Solicitação de acesso não encontrada.' });
     }
 
-    // Se já estiver processado, evita re-processar
     if (pedidoExiste.status !== 'Pendente') {
       return res.status(400).json({ error: 'Esta solicitação já foi processada anteriormente.' });
     }
 
     let passwordTemporaria = null;
 
-    // 2. Transação ou Fluxo se for APROVADO
     if (status === 'Aprovado') {
-      // Verificar preventivamente se o e-mail já não foi registado por fora entretanto
       const userExiste = await prisma.userAdmin.findUnique({
         where: { email: pedidoExiste.email.toLowerCase() }
       });
@@ -433,35 +431,30 @@ const updateAccessRequestStatus = async (req, res) => {
         return res.status(400).json({ error: 'Este e-mail já se encontra registado como utilizador ativo.' });
       }
 
-      // a) Gerar password temporária aleatória e segura (ex: PT-a8b2c3)
       passwordTemporaria = 'PT-' + crypto.randomBytes(4).toString('hex').toUpperCase();
 
-      // b) Encriptar a password temporária com bcrypt
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(passwordTemporaria, saltRounds);
 
-      // c) Criar a conta oficial do Personal Trainer no MariaDB (Usando Transação Prisma para garantir segurança)
-      // Dentro da transação Prisma na função updateAccessRequestStatus:
-await prisma.$transaction([
-  prisma.accessRequest.update({
-    where: { id: pedidoId },
-    data: { status: 'Aprovado' }
-  }),
-  prisma.userAdmin.create({
-    data: {
-      email: pedidoExiste.email.toLowerCase(),
-      nome: pedidoExiste.nome,
-      passwordHash: hashedPassword,
-      role: 'PT',
-      isActive: true,
-      mustChangePassword: true 
-    }
-  })
-]);
+      await prisma.$transaction([
+        prisma.accessRequest.update({
+          where: { id: pedidoId },
+          data: { status: 'Aprovado' }
+        }),
+        prisma.userAdmin.create({
+          data: {
+            email: pedidoExiste.email.toLowerCase(),
+            nome: pedidoExiste.nome,
+            passwordHash: hashedPassword,
+            role: 'PT',
+            isActive: true,
+            mustChangePassword: true 
+          }
+        })
+      ]);
 
       console.log(`Conta de PT criada com sucesso para ${pedidoExiste.email}`);
 
-      // d) Enviar Email de Boas-Vindas com as credenciais
       const emailHtml = `
         <div style="font-family: sans-serif; background-color: #0a0a0a; color: #ffffff; padding: 25px; border-radius: 16px; border: 1px solid #262626; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #ef4444; margin-top: 0;">🎉 O teu acesso foi Aprovado!</h2>
@@ -478,7 +471,7 @@ await prisma.$transaction([
           </div>
 
           <div style="text-align: center; margin: 25px 0;">
-            <a href="http://localhost:5173/login" style="background-color: #dc2626; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
+            <a href="https://pt-control.vercel.app/login" style="background-color: #dc2626; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
               Aceder à Plataforma
             </a>
           </div>
@@ -494,20 +487,23 @@ await prisma.$transaction([
         </div>
       `;
 
-      await emailService.sendEmail({
-        to: pedidoExiste.email,
-        subject: 'Conta Aprovada! Bem-vindo(a) a plantaforma PT-Control',
-        html: emailHtml
-      });
+      // 🔒 PROTEÇÃO DE EMAIL
+      try {
+        await emailService.sendEmail({
+          to: pedidoExiste.email,
+          subject: 'Conta Aprovada! Bem-vindo(a) à plataforma PT-Control',
+          html: emailHtml
+        });
+      } catch (emailError) {
+        console.warn('⚠️ Conta ativada no banco de dados, mas e-mail de aprovação falhou:', emailError.message);
+      }
 
     } else {
-      // Se for RECUSADO, apenas atualiza o estado na BD (não cria conta)
       await prisma.accessRequest.update({
         where: { id: pedidoId },
         data: { status: 'Recusado' }
       });
 
-      // Opcional: Enviar email a avisar da recusa
       const recusaHtml = `
         <div style="font-family: sans-serif; background-color: #0a0a0a; color: #ffffff; padding: 25px; border-radius: 16px; border: 1px solid #262626; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #737373; margin-top: 0;">Atualização sobre o seu pedido</h2>
@@ -522,11 +518,16 @@ await prisma.$transaction([
         </div>
       `;
 
-      await emailService.sendEmail({
-        to: pedidoExiste.email,
-        subject: 'Atualização sobre o seu pedido de acesso - PT-Control',
-        html: recusaHtml
-      });
+      // 🔒 PROTEÇÃO DE EMAIL
+      try {
+        await emailService.sendEmail({
+          to: pedidoExiste.email,
+          subject: 'Atualização sobre o seu pedido de acesso - PT-Control',
+          html: recusaHtml
+        });
+      } catch (emailError) {
+        console.warn('⚠️ Pedido recusado na BD, mas e-mail de recusa falhou:', emailError.message);
+      }
     }
 
     return res.status(200).json({
