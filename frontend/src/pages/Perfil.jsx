@@ -44,7 +44,7 @@ export default function Perfil() {
 
       // 🔥 CORRIGIDO: Passamos explicitamente o cabeçalho de autenticação como 2º parâmetro no POST (ou 3º se houvesse body, como não há body, passamos um objeto vazio ou a config direta dependendo da assinatura, para POST sem body passamos assim:)
       await axios.post(
-        'http://localhost:5000/api/auth/perfil/solicitar-codigo', 
+       `${import.meta.env.VITE_API_URL}/api/auth/perfil/solicitar-codigo`, 
         {}, // Body vazio
         configConfig // Cabeçalhos com o Token JWT
       );
@@ -92,7 +92,7 @@ export default function Perfil() {
 
       // 🔥 CORRIGIDO: Injetamos explicitamente a configuração com o Token como 3º parâmetro no PUT
       const response = await axios.put(
-        'http://localhost:5000/api/auth/perfil/atualizar', 
+        `${import.meta.env.VITE_API_URL}/api/auth/perfil/atualizar`, 
         {
           nome,
           email,
