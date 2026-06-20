@@ -27,8 +27,10 @@ const whatsappService = {
     mensagem += `------------------------------------\n`;
     
     if (planId) {
+      // 🔥 CORRIGIDO: URL do frontend de produção (Vercel) em vez de localhost
+      const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || 'https://pt-control.fit';
       mensagem += `🔗 *Clica no link para veres os GIFs animados do teu treino:*\n`;
-      mensagem += `http://localhost:5173/meutreino/${planId}\n\n`;
+      mensagem += `${FRONTEND_URL}/meutreino/${planId}\n\n`;
       mensagem += `------------------------------------\n`;
     }
 
