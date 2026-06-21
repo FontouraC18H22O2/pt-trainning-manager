@@ -26,7 +26,9 @@ app.use(helmet({crossOriginResourcePolicy: { policy: "cross-origin" }}));
 
 // Configuração Dinâmica e Segura do CORS
 const allowedOrigins = [
-  'https://pt-control.vercel.app',            // Domínio principal de produção na Vercel
+  'https://pt-control.vercel.app',            // Domínio padrão da Vercel
+  'https://pt-control.fit',                   // Domínio próprio de produção
+  'https://www.pt-control.fit',                // Variante com www, por segurança
   'http://localhost:5173',                    // Ambiente de desenvolvimento local do Vite
   process.env.FRONTEND_URL                    // Fallback para qualquer variável definida no Railway
 ].filter(Boolean); // Remove valores nulos ou indefinidos

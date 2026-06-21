@@ -1,10 +1,24 @@
 const { PrismaClient } = require('@prisma/client');
 const { PrismaMariaDb } = require('@prisma/adapter-mariadb');
-const fs = require('fs');
-const path = require('path');
+const { uploadBufferToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 
 const adapter = new PrismaMariaDb(process.env.DATABASE_URL);
 const prisma = new PrismaClient({ adapter });
+
+// 🔧 Função auxiliar: extrai o public_id do Cloudinary a partir do URL guardado na BD
+// Ex: https://res.cloudinary.com/ddqbkqowc/image/upload/v123456/pt-control/exercicios/abc123.gif
+// -> public_id = pt-control/exercicios/abc123
+const extractPublicIdFromUrl = (url) => {
+  if (!url || !url.includes('res.cloudinary.com')) return null;
+  try {
+    const partesAposUpload = url.split('/upload/')[1]; // v123456/pt-control/exercicios/abc123.gif
+    const semVersao = partesAposUpload.split('/').slice(1).join('/'); // pt-control/exercicios/abc123.gif
+    const semExtensao = semVersao.replace(/\.[^/.]+$/, ''); // pt-control/exercicios/abc123
+    return semExtensao;
+  } catch (error) {
+    return null;
+  }
+};
 
 // 🔍 1. GET - Listar exercícios (Globais + os do PT autenticado)
 exports.getAllExercises = async (req, res) => {
@@ -41,7 +55,6 @@ exports.createExercise = async (req, res) => {
     const userId = req.userId; // Captura quem está a criar
 
     if (!name || !category) {
-      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(400).json({ error: 'Campos obrigatórios em falta.' });
     }
 
@@ -57,13 +70,14 @@ exports.createExercise = async (req, res) => {
     });
 
     if (existe) {
-      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(400).json({ error: 'Já existe um exercício com este nome.' });
     }
 
+    // 🔥 ALTERADO: Upload para o Cloudinary em vez de gravar no disco do Railway
     let gifUrl = null;
     if (req.file) {
-      gifUrl = `/uploads/exercicios/${req.file.filename}`;
+      const resultado = await uploadBufferToCloudinary(req.file.buffer);
+      gifUrl = resultado.secure_url;
     }
 
     const newExercise = await prisma.globalExercise.create({
@@ -81,7 +95,6 @@ exports.createExercise = async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao criar exercício:', error);
-    if (req.file) fs.unlinkSync(req.file.path);
     return res.status(500).json({ error: 'Erro interno do servidor.' });
   }
 };
@@ -99,23 +112,23 @@ exports.updateExercise = async (req, res) => {
     });
 
     if (!exercise) {
-      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(404).json({ error: 'Exercício não encontrado.' });
     }
 
     // Proteção de segurança: Se não for ADMIN e não for o dono do exercício, bloqueia!
     if (userRole !== 'ADMIN' && exercise.userAdminId !== userId) {
-      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(403).json({ error: 'Não tens permissão para editar este exercício.' });
     }
 
+    // 🔥 ALTERADO: Upload do novo ficheiro para o Cloudinary, e apaga o antigo lá (não no disco)
     let gifUrl = exercise.gifUrl;
     if (req.file) {
       if (exercise.gifUrl) {
-        const oldPath = path.join(__dirname, '../../public', exercise.gifUrl);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        const oldPublicId = extractPublicIdFromUrl(exercise.gifUrl);
+        if (oldPublicId) await deleteFromCloudinary(oldPublicId);
       }
-      gifUrl = `/uploads/exercicios/${req.file.filename}`;
+      const resultado = await uploadBufferToCloudinary(req.file.buffer);
+      gifUrl = resultado.secure_url;
     }
 
     const updated = await prisma.globalExercise.update({
@@ -133,7 +146,6 @@ exports.updateExercise = async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao atualizar exercício:', error);
-    if (req.file) fs.unlinkSync(req.file.path);
     return res.status(500).json({ error: 'Erro interno do servidor.' });
   }
 };
@@ -158,9 +170,10 @@ exports.deleteExercise = async (req, res) => {
       return res.status(403).json({ error: 'Não tens permissão para eliminar este exercício.' });
     }
 
+    //ALTERADO: Apaga o ficheiro no Cloudinary em vez do disco local
     if (exercise.gifUrl) {
-      const filePath = path.join(__dirname, '../../public', exercise.gifUrl);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      const publicId = extractPublicIdFromUrl(exercise.gifUrl);
+      if (publicId) await deleteFromCloudinary(publicId);
     }
 
     await prisma.globalExercise.delete({
