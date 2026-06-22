@@ -28,7 +28,7 @@ export default function DashboardLayout() {
       {/* Zona de Conteúdo Dinâmico */}
       <main className="flex-1 min-h-screen overflow-y-auto">
 
-        {/* 🔥 MOBILE: Barra de topo com botão hambúrguer */}
+        {/* MOBILE: Barra de topo com botão hambúrguer */}
         <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 border-b md:hidden bg-neutral-900/95 backdrop-blur border-neutral-800">
           <button
             onClick={() => setSidebarAberta(true)}
