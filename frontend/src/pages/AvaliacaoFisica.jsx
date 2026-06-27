@@ -77,7 +77,7 @@ function SilhuetaCorporal({ dados }) {
   const val = (key) => dados[key] ? `${dados[key]}` : '—';
   return (
     <div className="relative flex items-center justify-center w-full">
-      <svg viewBox="0 0 200 420" className="w-full max-w-[200px]" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 200 420" className="w-full max-w-[280px]" fill="none" xmlns="http://www.w3.org/2000/svg">
         {/* Cabeça */}
         <ellipse cx="100" cy="35" rx="22" ry="26" fill="#262626" stroke="#404040" strokeWidth="1.5"/>
         {/* Pescoço */}
@@ -93,35 +93,38 @@ function SilhuetaCorporal({ dados }) {
         {/* Perna Esquerda */}
         <path d="M115 190 Q120 230 122 270 Q124 310 122 350 Q121 365 116 375" stroke="#404040" strokeWidth="14" strokeLinecap="round" fill="none"/>
 
-        {/* Pontos de medida com valores */}
         {/* Tórax */}
-        <circle cx="100" cy="105" r="4" fill="#ef4444"/>
-        <text x="108" y="109" fontSize="7" fill="#ef4444" fontWeight="bold">Tórax: {val('torax')}cm</text>
+        <circle cx="100" cy="105" r="5" fill="#ef4444"/>
+        <text x="108" y="102" fontSize="8.5" fill="#ef4444" fontWeight="bold">Tórax</text>
+        <text x="108" y="113" fontSize="8.5" fill="#ef4444">{val('torax')}cm</text>
         {/* Cintura */}
-        <circle cx="100" cy="145" r="4" fill="#f97316"/>
-        <text x="108" y="149" fontSize="7" fill="#f97316" fontWeight="bold">Cintura: {val('cintura')}cm</text>
+        <circle cx="100" cy="145" r="5" fill="#f97316"/>
+        <text x="108" y="142" fontSize="8.5" fill="#f97316" fontWeight="bold">Cintura</text>
+        <text x="108" y="153" fontSize="8.5" fill="#f97316">{val('cintura')}cm</text>
         {/* Abdómen */}
-        <circle cx="100" cy="165" r="4" fill="#eab308"/>
-        <text x="108" y="169" fontSize="7" fill="#eab308" fontWeight="bold">Abd: {val('abdomen')}cm</text>
+        <circle cx="100" cy="165" r="5" fill="#eab308"/>
+        <text x="108" y="162" fontSize="8.5" fill="#eab308" fontWeight="bold">Abd</text>
+        <text x="108" y="172" fontSize="8.5" fill="#eab308">{val('abdomen')}cm</text>
         {/* Quadril */}
-        <circle cx="100" cy="185" r="4" fill="#22c55e"/>
-        <text x="108" y="189" fontSize="7" fill="#22c55e" fontWeight="bold">Quadril: {val('quadril')}cm</text>
+        <circle cx="100" cy="185" r="5" fill="#22c55e"/>
+        <text x="108" y="182" fontSize="8.5" fill="#22c55e" fontWeight="bold">Quadril</text>
+        <text x="108" y="193" fontSize="8.5" fill="#22c55e">{val('quadril')}cm</text>
         {/* Braço D */}
-        <circle cx="44" cy="130" r="4" fill="#3b82f6"/>
-        <text x="2" y="122" fontSize="6.5" fill="#3b82f6" fontWeight="bold">B.D</text>
-        <text x="2" y="130" fontSize="6.5" fill="#3b82f6">{val('bracoDireitoCm')}cm</text>
+        <circle cx="44" cy="130" r="5" fill="#3b82f6"/>
+        <text x="2" y="122" fontSize="8" fill="#3b82f6" fontWeight="bold">B.D</text>
+        <text x="2" y="133" fontSize="8" fill="#3b82f6">{val('bracoDireitoCm')}cm</text>
         {/* Braço E */}
-        <circle cx="156" cy="130" r="4" fill="#8b5cf6"/>
-        <text x="161" y="122" fontSize="6.5" fill="#8b5cf6" fontWeight="bold">B.E</text>
-        <text x="161" y="130" fontSize="6.5" fill="#8b5cf6">{val('bracoEsquerdoCm')}cm</text>
+        <circle cx="156" cy="130" r="5" fill="#8b5cf6"/>
+        <text x="161" y="122" fontSize="8" fill="#8b5cf6" fontWeight="bold">B.E</text>
+        <text x="161" y="133" fontSize="8" fill="#8b5cf6">{val('bracoEsquerdoCm')}cm</text>
         {/* Perna D */}
-        <circle cx="80" cy="280" r="4" fill="#06b6d4"/>
-        <text x="30" y="276" fontSize="6.5" fill="#06b6d4" fontWeight="bold">P.D</text>
-        <text x="30" y="284" fontSize="6.5" fill="#06b6d4">{val('pernaDireitaCm')}cm</text>
+        <circle cx="80" cy="280" r="5" fill="#06b6d4"/>
+        <text x="22" y="274" fontSize="8" fill="#06b6d4" fontWeight="bold">P.D</text>
+        <text x="22" y="285" fontSize="8" fill="#06b6d4">{val('pernaDireitaCm')}cm</text>
         {/* Perna E */}
-        <circle cx="120" cy="280" r="4" fill="#ec4899"/>
-        <text x="126" y="276" fontSize="6.5" fill="#ec4899" fontWeight="bold">P.E</text>
-        <text x="126" y="284" fontSize="6.5" fill="#ec4899">{val('pernaEsquerdaCm')}cm</text>
+        <circle cx="120" cy="280" r="5" fill="#ec4899"/>
+        <text x="126" y="274" fontSize="8" fill="#ec4899" fontWeight="bold">P.E</text>
+        <text x="126" y="285" fontSize="8" fill="#ec4899">{val('pernaEsquerdaCm')}cm</text>
       </svg>
     </div>
   );
@@ -179,7 +182,9 @@ export default function AvaliacaoFisica() {
     setForm(prev => {
       const novo = { ...prev, [key]: value };
       if ((key === 'peso' || key === 'altura') && novo.peso && novo.altura) {
-        const alturaM = parseFloat(novo.altura) / 100;
+        const alturaVal = parseFloat(novo.altura);
+        // Detecta se a altura está em cm (> 3) ou metros (<= 3)
+        const alturaM = alturaVal > 3 ? alturaVal / 100 : alturaVal;
         const imc = alturaM > 0 ? (parseFloat(novo.peso) / (alturaM * alturaM)).toFixed(1) : '';
         novo.imc = imc;
       }
