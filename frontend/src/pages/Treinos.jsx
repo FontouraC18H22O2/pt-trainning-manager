@@ -247,7 +247,7 @@ export default function Treinos() {
       alunoSelecionado.nome,
       exercicios,
       notes,
-      savedPlanId
+      alunoSelecionadoId  // 🔥 studentId em vez de planId
     );
     setWhatsappTexto(textoMapeado);
     setIsPreviewOpen(true);
@@ -641,7 +641,7 @@ export default function Treinos() {
               <button onClick={() => setIsPreviewOpen(false)} className="w-full py-2.5 text-xs font-bold border border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-xl cursor-pointer">Ajustar</button>
               <button
                 onClick={() => {
-                  const url = whatsappService.enviarPlanoTreino(alunoSelecionado.whatsapp, alunoSelecionado.nome, exercicios, notes, savedPlanId);
+                  const url = whatsappService.enviarPlanoTreino(alunoSelecionado.whatsapp, alunoSelecionado.nome, exercicios, notes, alunoSelecionadoId);
                   if (url) window.open(url, "_blank");
                   setIsPreviewOpen(false);
                 }}

@@ -12,7 +12,7 @@ import VisualizarTreino from "./pages/VisualizarTreino";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
 import AccessRequests from "./pages/AccessRequests";
-import Perfil from "./pages/Perfil"; // 🔥 1. IMPORTAR A PÁGINA DE PERFIL
+import Perfil from "./pages/Perfil";
 
 function App() {
   return (
@@ -21,7 +21,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/meutreino/:planId" element={<VisualizarTreino />} />
+          {/*  ALTERADO: agora usa studentId em vez de planId */}
+          <Route path="/meutreino/:studentId" element={<VisualizarTreino />} />
 
           <Route
             path="/dashboard"
@@ -31,67 +32,13 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route
-              index
-              element={
-                <ProtectedRoute allowedRoles={["ADMIN", "PT"]}>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="personal-trainers"
-              element={
-                <ProtectedRoute allowedRoles={["ADMIN"]}>
-                  <GestaoPTs />
-                </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="pedidos-acesso"
-              element={
-                <ProtectedRoute allowedRoles={["ADMIN"]}>
-                  <AccessRequests />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="alunos"
-              element={
-                <ProtectedRoute allowedRoles={["ADMIN", "PT"]}>
-                  <Alunos />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="treinos"
-              element={
-                <ProtectedRoute allowedRoles={["ADMIN", "PT"]}>
-                  <Treinos />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="galeria"
-              element={
-                <ProtectedRoute allowedRoles={["ADMIN", "PT", "GUEST"]}>
-                  <Galeria />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* 🔥 2. ADICIONAR A ROTA DO PERFIL AQUI (Disponível para ADMIN, PT e GUEST) */}
-            <Route
-              path="perfil"
-              element={
-                <ProtectedRoute allowedRoles={["ADMIN", "PT", "GUEST"]}>
-                  <Perfil />
-                </ProtectedRoute>
-              }
-            />
+            <Route index element={<ProtectedRoute allowedRoles={["ADMIN", "PT"]}><Dashboard /></ProtectedRoute>} />
+            <Route path="personal-trainers" element={<ProtectedRoute allowedRoles={["ADMIN"]}><GestaoPTs /></ProtectedRoute>} />
+            <Route path="pedidos-acesso" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AccessRequests /></ProtectedRoute>} />
+            <Route path="alunos" element={<ProtectedRoute allowedRoles={["ADMIN", "PT"]}><Alunos /></ProtectedRoute>} />
+            <Route path="treinos" element={<ProtectedRoute allowedRoles={["ADMIN", "PT"]}><Treinos /></ProtectedRoute>} />
+            <Route path="galeria" element={<ProtectedRoute allowedRoles={["ADMIN", "PT", "GUEST"]}><Galeria /></ProtectedRoute>} />
+            <Route path="perfil" element={<ProtectedRoute allowedRoles={["ADMIN", "PT", "GUEST"]}><Perfil /></ProtectedRoute>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

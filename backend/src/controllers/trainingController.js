@@ -63,7 +63,7 @@ const getPlansByStudent = async (req, res) => {
 
     return res.status(200).json(planosComGifs);
   } catch (error) {
-    console.error('❌ Erro ao buscar planos por estudante:', error);
+    console.error("❌ Erro ao buscar planos por estudante:", error.message, error.stack);
     return res.status(500).json({ error: 'Erro interno ao carregar os planos de treino.' });
   }
 };
@@ -325,7 +325,54 @@ const deleteSchedule = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 7. PLANO PÚBLICO (link WhatsApp — sem autenticação)
+// 7. PLANO PÚBLICO POR ALUNO (link WhatsApp — sem autenticação)
+// Devolve todos os planos do aluno ordenados por dia
+// ─────────────────────────────────────────────
+const getPublicPlansByStudent = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const id = parseInt(studentId);
+
+    if (isNaN(id)) return res.status(400).json({ error: 'ID do aluno inválido.' });
+
+    const aluno = await prisma.student.findUnique({
+      where: { id },
+      select: { fullName: true }
+    });
+
+    if (!aluno) return res.status(404).json({ error: 'Aluno não encontrado.' });
+
+    const planos = await prisma.trainingPlan.findMany({
+      where: { studentId: id },
+      include: { exercises: true },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    planos.sort((a, b) => (a.dayNumber ?? 99) - (b.dayNumber ?? 99));
+
+    // Injeta GIFs em cada plano (sem filtrar por PT — acesso público)
+    const planosComGifs = await Promise.all(
+      planos.map(async (plano) => ({
+        id: plano.id,
+        name: plano.name || `Dia ${plano.dayNumber || 1}`,
+        dayNumber: plano.dayNumber,
+        notes: plano.notes,
+        exercises: await injetarGifs(plano.exercises, null)
+      }))
+    );
+
+    return res.status(200).json({
+      studentName: aluno.fullName,
+      planos: planosComGifs
+    });
+  } catch (error) {
+    console.error('❌ Erro ao buscar planos públicos do aluno:', error.message);
+    return res.status(500).json({ error: 'Erro interno ao buscar os planos de treino.' });
+  }
+};
+
+// ─────────────────────────────────────────────
+// 7b. PLANO PÚBLICO POR PLAN ID (compatibilidade legada)
 // ─────────────────────────────────────────────
 const getPublicPlan = async (req, res) => {
   try {
@@ -380,6 +427,16 @@ const getAllGifs = async (req, res) => {
 };
 
 module.exports = {
+  getPlanByStudent,
+  getPlansByStudent,
+  saveTrainingPlan,
+  deletePlan,
+  getPublicPlan,
+  getPublicPlansByStudent,
+  getAllGifs,
+  getSchedule,
+  createSchedule,
+  deleteSchedule,
   getPlanByStudent,
   getPlansByStudent,
   saveTrainingPlan,
