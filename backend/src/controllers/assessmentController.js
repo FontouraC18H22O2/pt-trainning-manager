@@ -4,6 +4,10 @@ const { PrismaMariaDb } = require('@prisma/adapter-mariadb');
 const adapter = new PrismaMariaDb(process.env.DATABASE_URL);
 const prisma = new PrismaClient({ adapter });
 
+// 🔧 Arredonda para 2 casas decimais de forma segura (evita DECIMAL overflow na BD)
+const dec = (val) => val !== undefined && val !== null && val !== '' ? parseFloat(parseFloat(val).toFixed(2)) : null;
+const int = (val) => val !== undefined && val !== null && val !== '' ? parseInt(val) : null;
+
 // 🔧 Converte campos Decimal do Prisma para Number simples
 const formatarAvaliacao = (a) => {
   if (!a) return null;
@@ -79,40 +83,41 @@ const createAssessment = async (req, res) => {
         userAdminId: ptId,
         assessmentDate: assessmentDate ? new Date(assessmentDate) : new Date(),
         profissao: profissao || null,
+
         sexo: sexo || null,
-        idade: idade ? parseInt(idade) : null,
+        idade: int(idade),
         objetivos: objetivos || null,
         patologias: patologias || null,
         medicamentos: medicamentos || null,
         alcoolTabaco: alcoolTabaco || null,
         experienciaTreino: experienciaTreino || null,
         nivelAtividade: nivelAtividade || null,
-        vezesSemana: vezesSemana ? parseInt(vezesSemana) : null,
-        peso: peso ? parseFloat(peso) : null,
-        altura: altura ? parseFloat(altura) : null,
-        imc: imc ? parseFloat(imc) : null,
-        bracoDireitoCm: bracoDireitoCm ? parseFloat(bracoDireitoCm) : null,
-        bracoDireitoPct: bracoDireitoPct ? parseFloat(bracoDireitoPct) : null,
-        bracoDireitoKg: bracoDireitoKg ? parseFloat(bracoDireitoKg) : null,
-        bracoEsquerdoCm: bracoEsquerdoCm ? parseFloat(bracoEsquerdoCm) : null,
-        bracoEsquerdoPct: bracoEsquerdoPct ? parseFloat(bracoEsquerdoPct) : null,
-        bracoEsquerdoKg: bracoEsquerdoKg ? parseFloat(bracoEsquerdoKg) : null,
-        pernaDireitaCm: pernaDireitaCm ? parseFloat(pernaDireitaCm) : null,
-        pernaDireitaPct: pernaDireitaPct ? parseFloat(pernaDireitaPct) : null,
-        pernaDireitaKg: pernaDireitaKg ? parseFloat(pernaDireitaKg) : null,
-        pernaEsquerdaCm: pernaEsquerdaCm ? parseFloat(pernaEsquerdaCm) : null,
-        pernaEsquerdaPct: pernaEsquerdaPct ? parseFloat(pernaEsquerdaPct) : null,
-        pernaEsquerdaKg: pernaEsquerdaKg ? parseFloat(pernaEsquerdaKg) : null,
-        torax: torax ? parseFloat(torax) : null,
-        cintura: cintura ? parseFloat(cintura) : null,
-        abdomen: abdomen ? parseFloat(abdomen) : null,
-        quadril: quadril ? parseFloat(quadril) : null,
-        pctMassaGorda: pctMassaGorda ? parseFloat(pctMassaGorda) : null,
-        pctAgua: pctAgua ? parseFloat(pctAgua) : null,
-        idadeMetabolica: idadeMetabolica ? parseInt(idadeMetabolica) : null,
-        tmb: tmb ? parseFloat(tmb) : null,
-        gorduraVisceral: gorduraVisceral ? parseFloat(gorduraVisceral) : null,
-        kgMassaMuscular: kgMassaMuscular ? parseFloat(kgMassaMuscular) : null,
+        vezesSemana: int(vezesSemana),
+        peso: dec(peso),
+        altura: dec(altura),
+        imc: dec(imc),
+        bracoDireitoCm: dec(bracoDireitoCm),
+        bracoDireitoPct: dec(bracoDireitoPct),
+        bracoDireitoKg: dec(bracoDireitoKg),
+        bracoEsquerdoCm: dec(bracoEsquerdoCm),
+        bracoEsquerdoPct: dec(bracoEsquerdoPct),
+        bracoEsquerdoKg: dec(bracoEsquerdoKg),
+        pernaDireitaCm: dec(pernaDireitaCm),
+        pernaDireitaPct: dec(pernaDireitaPct),
+        pernaDireitaKg: dec(pernaDireitaKg),
+        pernaEsquerdaCm: dec(pernaEsquerdaCm),
+        pernaEsquerdaPct: dec(pernaEsquerdaPct),
+        pernaEsquerdaKg: dec(pernaEsquerdaKg),
+        torax: dec(torax),
+        cintura: dec(cintura),
+        abdomen: dec(abdomen),
+        quadril: dec(quadril),
+        pctMassaGorda: dec(pctMassaGorda),
+        pctAgua: dec(pctAgua),
+        idadeMetabolica: int(idadeMetabolica),
+        tmb: dec(tmb),
+        gorduraVisceral: dec(gorduraVisceral),
+        kgMassaMuscular: dec(kgMassaMuscular),
       }
     });
 
