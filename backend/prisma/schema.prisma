@@ -29,13 +29,15 @@ model UserAdmin {
   mustChangePassword Boolean @default(true) @map("must_change_password")
 
   students       Student[] 
-  exercises          GlobalExercise[]
+  exercises      GlobalExercise[]
+  schedules      TrainingSchedule[]
+
   @@map("users_admin")
 }
 
 model Student {
   id            Int            @id @default(autoincrement())
-  userAdminId   Int            @map("user_admin_id") // 🔥 Liga este aluno ao seu PT criador
+  userAdminId   Int            @map("user_admin_id")
   fullName      String         @map("full_name")
   phoneNumber   String         @map("phone_number")
   status        String         @default("Ativo")
@@ -47,18 +49,24 @@ model Student {
   trainingPlans TrainingPlan[]
   whatsappLogs  WhatsappLog[]
   weightLogs    WeightLog[]
+  schedules     TrainingSchedule[]
 
   @@map("students")
 }
 
 model TrainingPlan {
-  id        Int        @id @default(autoincrement())
-  studentId Int        @map("student_id")
-  notes     String?    @db.Text
-  createdAt DateTime   @default(now()) @map("created_at")
+  id          Int        @id @default(autoincrement())
+  studentId   Int        @map("student_id")
+  // 🔥 NOVO: Nome do plano (ex: "Dia 1 - Peito", "Dia 2 - Costas")
+  name        String?    @default("Plano de Treino")
+  // 🔥 NOVO: Número do dia (1 a 7), permite até 7 dias mas não obrigatório
+  dayNumber   Int?       @map("day_number")
+  notes       String?    @db.Text
+  createdAt   DateTime   @default(now()) @map("created_at")
 
-  student   Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  exercises TrainingExercise[]
+  student     Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  exercises   TrainingExercise[]
+  schedules   TrainingSchedule[]
 
   @@map("training_plans")
 }
@@ -67,6 +75,7 @@ model TrainingExercise {
   id             Int          @id @default(autoincrement())
   trainingPlanId Int          @map("training_plan_id")
   exerciseName   String       @map("exercise_name")
+  gifUrl         String?      @map("gif_url") @db.Text
   sets           Int
   reps           Int
   restTime       String       @map("rest_time") 
@@ -77,15 +86,30 @@ model TrainingExercise {
   @@map("training_exercises")
 }
 
-// 3. ADICIONADO: Biblioteca Global de Exercícios (Imagens/GIFs)
+// 🔥 NOVO: Calendário de treinos — agenda qual aluno faz qual plano em que dia
+model TrainingSchedule {
+  id             Int          @id @default(autoincrement())
+  studentId      Int          @map("student_id")
+  trainingPlanId Int          @map("training_plan_id")
+  userAdminId    Int          @map("user_admin_id")
+  scheduledDate  DateTime     @map("scheduled_date") @db.Date
+  notes          String?      @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
 
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  trainingPlan   TrainingPlan @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+  userAdmin      UserAdmin    @relation(fields: [userAdminId], references: [id], onDelete: Cascade)
+
+  @@map("training_schedule")
+}
+
+// 3. ADICIONADO: Biblioteca Global de Exercícios (Imagens/GIFs)
 model GlobalExercise {
   id          Int        @id @default(autoincrement())
-  name        String     @unique // Ex: "Supino Inclinado com Halteres"
+  name        String     @unique
   gifUrl      String?    @map("gif_url")
-  category    String     // Ex: "Peito", "Costas", "Pernas"
+  category    String
   
-  // 🔥 ADICIONADO: Ligação opcional com o PT (UserAdmin)
   userAdminId Int?       @map("user_admin_id")
   userAdmin   UserAdmin? @relation(fields: [userAdminId], references: [id], onDelete: Cascade)
 
@@ -121,14 +145,12 @@ model WeightLog {
   @@map("weight_logs")
 }
 
-// 🔥 4. ADICIONADO: Registo de Solicitações de Acesso à Plataforma
-// Guarda os pedidos enviados pelo formulário público para gestão do Admin.
 model AccessRequest {
   id        Int      @id @default(autoincrement())
   nome      String
-  email     String   // Não pomos @unique para permitir que a pessoa tente pedir outra vez se for recusada
+  email     String
   mensagem  String?  @db.Text
-  status    String   @default("Pendente") // Valores: "Pendente", "Aprovado", "Recusado"
+  status    String   @default("Pendente")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -142,5 +164,5 @@ model VerificationCode {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  @@map("verification_codes") // Mapeia para o nome exato da tabela no MariaDB
+  @@map("verification_codes")
 }
