@@ -8,7 +8,7 @@
     "seed": "node seed.js",
     "postinstall": "prisma generate",
     "migrate": "prisma migrate deploy",
-    "start": "prisma migrate deploy && node server.js"
+    "start": "prisma generate && prisma migrate deploy && node server.js"
   },
   "prisma": {
     "seed": "node seed.js"

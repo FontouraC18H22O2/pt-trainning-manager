@@ -47,8 +47,11 @@ const getPlansByStudent = async (req, res) => {
     const planos = await prisma.trainingPlan.findMany({
       where: { studentId: id },
       include: { exercises: true },
-      orderBy: { dayNumber: 'asc' }
+      orderBy: { createdAt: 'asc' } // Ordenar por data enquanto dayNumber não está no cliente Prisma
     });
+
+    // Ordenar por dayNumber no lado do Node caso já exista na BD
+    planos.sort((a, b) => (a.dayNumber ?? 99) - (b.dayNumber ?? 99));
 
     // Injeta GIFs em cada plano
     const planosComGifs = await Promise.all(
@@ -359,11 +362,13 @@ const getPublicPlan = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 8. TODOS OS GIFs DA BIBLIOTECA
+// 8. EXERCÍCIOS DA BIBLIOTECA DO PT (só os seus)
 // ─────────────────────────────────────────────
 const getAllGifs = async (req, res) => {
   try {
+    const ptId = req.userId;
     const exercises = await prisma.globalExercise.findMany({
+      where: { userAdminId: ptId }, // 🔥 Só os exercícios deste PT
       orderBy: { name: 'asc' },
       select: { id: true, name: true, gifUrl: true, category: true }
     });
