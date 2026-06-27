@@ -15,6 +15,7 @@ const dashboardRoutes = require('./src/routes/dashboardRoutes');
 const weightRoutes = require('./src/routes/weightRoutes');
 const exerciseRoutes = require('./src/routes/exerciseRoutes');
 const diagnosticsRoutes = require('./src/routes/diagnosticsRoutes');
+const assessmentRoutes = require('./src/routes/assessmentRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,8 +29,8 @@ app.use(helmet({crossOriginResourcePolicy: { policy: "cross-origin" }}));
 // Configuração Dinâmica e Segura do CORS
 const allowedOrigins = [
   'https://pt-control.vercel.app',            // Domínio padrão da Vercel
-  'https://pt-control.fit',                   //  Domínio próprio de produção
-  'https://www.pt-control.fit',                //  Variante com www, por segurança
+  'https://pt-control.fit',                   // 🔥 Domínio próprio de produção
+  'https://www.pt-control.fit',                // 🔥 Variante com www, por segurança
   'http://localhost:5173',                    // Ambiente de desenvolvimento local do Vite
   process.env.FRONTEND_URL                    // Fallback para qualquer variável definida no Railway
 ].filter(Boolean); // Remove valores nulos ou indefinidos
@@ -76,6 +77,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/weights', weightRoutes);
 app.use('/api/exercises', exerciseRoutes);
 app.use('/api/diagnostics', diagnosticsRoutes);
+app.use('/api/assessments', assessmentRoutes);
 
 // Rota de Teste de Diagnóstico
 app.get('/api/status', (req, res) => {

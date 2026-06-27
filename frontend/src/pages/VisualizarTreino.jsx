@@ -6,7 +6,8 @@ export default function VisualizarTreino() {
   const { studentId } = useParams();
   const [studentName, setStudentName] = useState('');
   const [planos, setPlanos] = useState([]);
-  const [abaAtiva, setAbaAtiva] = useState(null); // dayNumber ou 'avaliacao'
+  const [avaliacoes, setAvaliacoes] = useState([]);
+  const [abaAtiva, setAbaAtiva] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -19,15 +20,18 @@ export default function VisualizarTreino() {
   };
 
   useEffect(() => {
-    const fetchPlanos = async () => {
+    const fetchDados = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${BACKEND_URL}/api/training/public/student/${studentId}`);
-        setStudentName(response.data.studentName || 'Atleta');
-        setPlanos(response.data.planos || []);
-        // Seleciona a primeira aba disponível
-        if (response.data.planos?.length > 0) {
-          setAbaAtiva(response.data.planos[0].dayNumber ?? 1);
+        const [resTreinos, resAvaliacoes] = await Promise.all([
+          axios.get(`${BACKEND_URL}/api/training/public/student/${studentId}`),
+          axios.get(`${BACKEND_URL}/api/assessments/public/student/${studentId}`)
+        ]);
+        setStudentName(resTreinos.data.studentName || 'Atleta');
+        setPlanos(resTreinos.data.planos || []);
+        setAvaliacoes(resAvaliacoes.data || []);
+        if (resTreinos.data.planos?.length > 0) {
+          setAbaAtiva(resTreinos.data.planos[0].dayNumber ?? 1);
         } else {
           setAbaAtiva('avaliacao');
         }
@@ -38,7 +42,7 @@ export default function VisualizarTreino() {
         setLoading(false);
       }
     };
-    fetchPlanos();
+    fetchDados();
   }, [studentId]);
 
   if (loading) {
@@ -201,12 +205,46 @@ export default function VisualizarTreino() {
 
         {/* Aba de Avaliação Física */}
         {abaAtiva === 'avaliacao' && (
-          <div className="p-10 space-y-3 text-center border border-dashed border-neutral-800 rounded-2xl">
-            <span className="text-4xl">📊</span>
-            <h3 className="text-lg font-bold text-white">Avaliação Física</h3>
-            <p className="text-sm text-neutral-500">
-              A tua avaliação física será disponibilizada aqui em breve pelo teu treinador.
-            </p>
+          <div className="space-y-4">
+            {avaliacoes.length === 0 ? (
+              <div className="p-10 space-y-3 text-center border border-dashed border-neutral-800 rounded-2xl">
+                <span className="text-4xl">📊</span>
+                <h3 className="text-lg font-bold text-white">Avaliação Física</h3>
+                <p className="text-sm text-neutral-500">A tua avaliação física será disponibilizada aqui em breve pelo teu treinador.</p>
+              </div>
+            ) : (
+              avaliacoes.map((av, idx) => (
+                <div key={av.id} className="p-5 space-y-4 border bg-neutral-900 border-neutral-800 rounded-2xl">
+                  <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+                    <h3 className="font-bold text-white">
+                      📊 Avaliação {idx === 0 ? '(Mais Recente) — ' : '— '}
+                      {new Date(av.assessmentDate).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {[
+                      ['Peso', av.peso, 'kg'], ['Altura', av.altura, 'cm'], ['IMC', av.imc, ''],
+                      ['% Massa Gorda', av.pctMassaGorda, '%'], ['% Água', av.pctAgua, '%'],
+                      ['Massa Muscular', av.kgMassaMuscular, 'kg'], ['TMB', av.tmb, 'kcal'],
+                      ['Idade Metabólica', av.idadeMetabolica, 'anos'], ['Gordura Visceral', av.gorduraVisceral, ''],
+                      ['Tórax', av.torax, 'cm'], ['Cintura', av.cintura, 'cm'],
+                      ['Abdómen', av.abdomen, 'cm'], ['Quadril', av.quadril, 'cm'],
+                    ].map(([label, val, unit]) => val !== null && val !== undefined && (
+                      <div key={label} className="p-3 border bg-neutral-950 border-neutral-800 rounded-xl">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{label}</p>
+                        <p className="text-lg font-black text-white">{val}{unit ? ` ${unit}` : ''}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {av.objetivos && (
+                    <div className="p-3 border bg-neutral-950 border-neutral-800 rounded-xl">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1">Objetivos</p>
+                      <p className="text-sm text-neutral-300">{av.objetivos}</p>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>

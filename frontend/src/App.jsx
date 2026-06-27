@@ -13,6 +13,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
 import AccessRequests from "./pages/AccessRequests";
 import Perfil from "./pages/Perfil";
+import AvaliacaoFisica from "./pages/AvaliacaoFisica";
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
             <Route path="treinos" element={<ProtectedRoute allowedRoles={["ADMIN", "PT"]}><Treinos /></ProtectedRoute>} />
             <Route path="galeria" element={<ProtectedRoute allowedRoles={["ADMIN", "PT", "GUEST"]}><Galeria /></ProtectedRoute>} />
             <Route path="perfil" element={<ProtectedRoute allowedRoles={["ADMIN", "PT", "GUEST"]}><Perfil /></ProtectedRoute>} />
+            <Route path="avaliacao" element={<ProtectedRoute allowedRoles={["PT"]}><AvaliacaoFisica /></ProtectedRoute>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
