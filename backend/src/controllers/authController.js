@@ -343,7 +343,7 @@ const deactivateTrainer = async (req, res) => {
   }
 };
 
-// 💪 VERSÃO CORRIGIDA: Contagem focada apenas em Alunos Ativos
+// 💪 MÉTRICAS COMPLETAS DO PT
 const getTrainerMetrics = async (req, res) => {
   try {
     const ptId = parseInt(req.userId); 
@@ -352,44 +352,60 @@ const getTrainerMetrics = async (req, res) => {
       return res.status(400).json({ error: 'ID do utilizador inválido no token.' });
     }
 
-    // 1. Contar APENAS os alunos associados a este PT que estejam "Ativo"
-    const totalAlunos = await prisma.student.count({
+    // 1. Alunos ativos deste PT
+    const totalAlunosAtivos = await prisma.student.count({
+      where: { userAdminId: ptId, status: 'Ativo' }
+    });
+
+    // 2. Alunos inativos deste PT
+    const totalAlunosInativos = await prisma.student.count({
+      where: { userAdminId: ptId, status: 'Inativo' }
+    });
+
+    // 3. Planos criados este mês (dos alunos deste PT)
+    const inicioMes = new Date();
+    inicioMes.setDate(1);
+    inicioMes.setHours(0, 0, 0, 0);
+
+    const planosMes = await prisma.trainingPlan.count({
       where: {
-        userAdminId: ptId,
-        status: 'Ativo' // 🔥 FILTRO ADICIONADO: Garante que só conta os ativos
+        student: { userAdminId: ptId },
+        createdAt: { gte: inicioMes }
       }
     });
 
-    // 2. Contar os Planos de Treino apenas dos alunos deste PT que estejam "Ativo"
+    // 4. Total de planos deste PT
     const totalPlanos = await prisma.trainingPlan.count({
-      where: {
-        student: {
-          userAdminId: ptId,
-          status: 'Ativo' // 🔥 FILTRO ADICIONADO: Ignora planos de alunos inativos
-        }
-      }
+      where: { student: { userAdminId: ptId } }
     });
 
-    // 3. Contar o total de exercícios globais na biblioteca
-    const totalExercicios = await prisma.globalExercise.count();
+    // 5. Exercícios na galeria deste PT
+    const totalExercicios = await prisma.globalExercise.count({
+      where: { userAdminId: ptId }
+    });
 
-    // Log de monitorização no terminal
-    console.log(`📊 Métricas de Ativos para o PT ID ${ptId}:`, { 
-      totalAlunos, 
-      totalPlanos, 
-      totalExercicios 
+    // 6. Últimos 5 alunos adicionados por este PT
+    const ultimosAlunos = await prisma.student.findMany({
+      where: { userAdminId: ptId },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { id: true, nome: true, status: true, createdAt: true }
     });
 
     return res.status(200).json({
-      totalAlunos,
+      totalAlunos: totalAlunosAtivos,
+      totalAlunosAtivos,
+      totalAlunosInativos,
       totalPlanos,
-      totalExercicios
+      planosMes,
+      totalExercicios,
+      ultimosAlunos
     });
   } catch (error) {
-    console.error('❌ Erro crítico ao calcular métricas filtradas do PT:', error);
+    console.error('❌ Erro crítico ao calcular métricas do PT:', error);
     return res.status(500).json({ 
       error: 'Erro interno', 
-      message: 'Não foi possível carregar as estatísticas filtradas.' 
+      message: 'Não foi possível carregar as estatísticas.' 
     });
   }
 };
@@ -471,7 +487,7 @@ const updateAccessRequestStatus = async (req, res) => {
           </div>
 
           <div style="text-align: center; margin: 25px 0;">
-            <a href="https://pt-control.vercel.app/" style="background-color: #dc2626; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
+            <a href="https://pt-control.fit/" style="background-color: #dc2626; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
               Aceder à Plataforma
             </a>
           </div>

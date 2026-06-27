@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getTrainerMetrics } from '../services/adminService';
-import { getSystemStatus } from '../services/diagnosticsService'; // 🔥 NOVO
+import { getSystemStatus } from '../services/diagnosticsService';
 
-// 🔥 NOVO: Badge de estado reutilizável (verde = online, vermelho = erro, cinza = não configurado/informativo)
 function StatusBadge({ status }) {
   const config = {
     online: { cor: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400', label: 'Online', dot: 'bg-emerald-500' },
@@ -21,25 +20,39 @@ function StatusBadge({ status }) {
   );
 }
 
+// Cartão de métrica reutilizável
+function MetricCard({ icon, label, value, sub, color = 'text-white', loading }) {
+  return (
+    <div className="p-5 space-y-1 border bg-neutral-900 border-neutral-800 rounded-2xl">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold tracking-wider uppercase text-neutral-500">{label}</p>
+        <span className="text-lg">{icon}</span>
+      </div>
+      <p className={`text-3xl font-black ${color}`}>
+        {loading ? <span className="text-sm font-normal text-neutral-500">A carregar...</span> : value}
+      </p>
+      {sub && <p className="text-[11px] text-neutral-500">{sub}</p>}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user, role } = useAuth();
   const navigate = useNavigate();
-
   const isAdmin = role === 'ADMIN';
 
-  // Estados para controlar os dados reais do PT e o estado de loading
-  const [metrics, setMetrics] = useState({ totalAlunos: 0, totalPlanos: 0, totalExercicios: 0 });
+  const [metrics, setMetrics] = useState({
+    totalAlunos: 0, totalAlunosAtivos: 0, totalAlunosInativos: 0,
+    totalPlanos: 0, planosMes: 0, totalExercicios: 0, ultimosAlunos: []
+  });
   const [loadingMetrics, setLoadingMetrics] = useState(!isAdmin);
-
-  // 🔥 NOVO: Estados para o diagnóstico de sistema do ADMIN
   const [systemStatus, setSystemStatus] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState(isAdmin);
   const [statusError, setStatusError] = useState('');
 
-  // Procura as métricas na BD se o utilizador for um PT
   useEffect(() => {
     if (!isAdmin) {
-      const carregarMetricas = async () => {
+      const carregar = async () => {
         try {
           const dados = await getTrainerMetrics();
           setMetrics(dados);
@@ -49,11 +62,10 @@ export default function Dashboard() {
           setLoadingMetrics(false);
         }
       };
-      carregarMetricas();
+      carregar();
     }
   }, [isAdmin]);
 
-  // 🔥 NOVO: Procura o estado dos serviços ligados se o utilizador for ADMIN
   const carregarSystemStatus = async () => {
     try {
       setLoadingStatus(true);
@@ -61,7 +73,6 @@ export default function Dashboard() {
       const dados = await getSystemStatus();
       setSystemStatus(dados);
     } catch (err) {
-      console.error('Erro ao carregar diagnóstico do sistema:', err);
       setStatusError(err.message || 'Não foi possível verificar o estado dos serviços.');
     } finally {
       setLoadingStatus(false);
@@ -69,13 +80,11 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (isAdmin) {
-      carregarSystemStatus();
-    }
+    if (isAdmin) carregarSystemStatus();
   }, [isAdmin]);
 
   // ==========================================
-  // 👑 CASO 1: PAINEL DE CONTROLO EXCLUSIVO DO ADMIN
+  // 👑 PAINEL ADMIN
   // ==========================================
   if (isAdmin) {
     return (
@@ -96,7 +105,6 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* 🔥 NOVO: Painel de Diagnóstico de Infraestrutura em tempo real */}
         <div className="p-5 space-y-4 border bg-neutral-900 border-neutral-800 rounded-2xl">
           <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
             <div>
@@ -119,14 +127,11 @@ export default function Dashboard() {
           </div>
 
           {statusError ? (
-            <div className="p-4 text-xs font-medium text-center text-red-400 border bg-red-950/20 border-red-900/30 rounded-xl">
-              ⚠️ {statusError}
-            </div>
+            <div className="p-4 text-xs font-medium text-center text-red-400 border bg-red-950/20 border-red-900/30 rounded-xl">⚠️ {statusError}</div>
           ) : loadingStatus && !systemStatus ? (
             <div className="py-8 text-sm text-center text-neutral-500">A contactar os serviços ligados...</div>
           ) : systemStatus ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Backend / Railway */}
               <div className="p-4 space-y-2 border bg-neutral-950 border-neutral-800 rounded-xl">
                 <div className="flex items-start justify-between">
                   <p className="text-xs font-bold text-white">⚙️ {systemStatus.backend.nome}</p>
@@ -135,54 +140,32 @@ export default function Dashboard() {
                 <p className="text-[11px] text-neutral-500">Uptime: <span className="font-mono text-neutral-300">{systemStatus.backend.uptime}</span></p>
                 <p className="text-[11px] text-neutral-500">Ambiente: <span className="font-mono text-neutral-300">{systemStatus.backend.ambiente}</span></p>
               </div>
-
-              {/* Base de Dados */}
               <div className="p-4 space-y-2 border bg-neutral-950 border-neutral-800 rounded-xl">
                 <div className="flex items-start justify-between">
                   <p className="text-xs font-bold text-white">🗄️ {systemStatus.database.nome}</p>
                   <StatusBadge status={systemStatus.database.status} />
                 </div>
                 <p className="text-[11px] text-neutral-500">Tempo resposta: <span className="font-mono text-neutral-300">{systemStatus.database.tempoResposta}</span></p>
-                {systemStatus.database.erro && (
-                  <p className="text-[11px] text-red-400 truncate" title={systemStatus.database.erro}>Erro: {systemStatus.database.erro}</p>
-                )}
+                {systemStatus.database.erro && <p className="text-[11px] text-red-400 truncate">Erro: {systemStatus.database.erro}</p>}
               </div>
-
-              {/* Email / Resend */}
               <div className="p-4 space-y-2 border bg-neutral-950 border-neutral-800 rounded-xl">
                 <div className="flex items-start justify-between">
                   <p className="text-xs font-bold text-white">📧 {systemStatus.email.nome}</p>
                   <StatusBadge status={systemStatus.email.status} />
                 </div>
-                {systemStatus.email.tempoResposta && (
-                  <p className="text-[11px] text-neutral-500">Tempo resposta: <span className="font-mono text-neutral-300">{systemStatus.email.tempoResposta}</span></p>
-                )}
-                {systemStatus.email.erro && (
-                  <p className="text-[11px] text-red-400 truncate" title={systemStatus.email.erro}>Erro: {systemStatus.email.erro}</p>
-                )}
-                {systemStatus.email.status === 'não configurado' && (
-                  <p className="text-[11px] text-amber-500/80">RESEND_API_KEY não definida no Railway.</p>
-                )}
+                {systemStatus.email.tempoResposta && <p className="text-[11px] text-neutral-500">Tempo resposta: <span className="font-mono text-neutral-300">{systemStatus.email.tempoResposta}</span></p>}
+                {systemStatus.email.erro && <p className="text-[11px] text-red-400 truncate">Erro: {systemStatus.email.erro}</p>}
+                {systemStatus.email.status === 'não configurado' && <p className="text-[11px] text-amber-500/80">RESEND_API_KEY não definida no Railway.</p>}
               </div>
-
-              {/* Cloudinary */}
               <div className="p-4 space-y-2 border bg-neutral-950 border-neutral-800 rounded-xl">
                 <div className="flex items-start justify-between">
                   <p className="text-xs font-bold text-white">🖼️ {systemStatus.storage.nome}</p>
                   <StatusBadge status={systemStatus.storage.status} />
                 </div>
-                {systemStatus.storage.tempoResposta && (
-                  <p className="text-[11px] text-neutral-500">Tempo resposta: <span className="font-mono text-neutral-300">{systemStatus.storage.tempoResposta}</span></p>
-                )}
-                {systemStatus.storage.erro && (
-                  <p className="text-[11px] text-red-400 truncate" title={systemStatus.storage.erro}>Erro: {systemStatus.storage.erro}</p>
-                )}
-                {systemStatus.storage.status === 'não configurado' && (
-                  <p className="text-[11px] text-amber-500/80">Credenciais Cloudinary em falta no Railway.</p>
-                )}
+                {systemStatus.storage.tempoResposta && <p className="text-[11px] text-neutral-500">Tempo resposta: <span className="font-mono text-neutral-300">{systemStatus.storage.tempoResposta}</span></p>}
+                {systemStatus.storage.erro && <p className="text-[11px] text-red-400 truncate">Erro: {systemStatus.storage.erro}</p>}
+                {systemStatus.storage.status === 'não configurado' && <p className="text-[11px] text-amber-500/80">Credenciais Cloudinary em falta no Railway.</p>}
               </div>
-
-              {/* Frontend / Vercel */}
               <div className="p-4 space-y-2 border bg-neutral-950 border-neutral-800 rounded-xl sm:col-span-2 lg:col-span-1">
                 <div className="flex items-start justify-between">
                   <p className="text-xs font-bold text-white">🌐 {systemStatus.frontend.nome}</p>
@@ -206,17 +189,11 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="p-6 space-y-4 border lg:col-span-1 bg-neutral-900 border-neutral-800 rounded-2xl">
             <h3 className="text-base font-bold text-white">Ações Administrativas</h3>
-            <p className="text-xs leading-relaxed text-neutral-400">
-              Como administrador, as tuas funções estão restritas à criação, auditoria e revogação de acessos na plataforma fitness.
-            </p>
-            <button
-              onClick={() => navigate('/dashboard/personal-trainers')}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-4 rounded-xl transition-colors text-sm cursor-pointer shadow-lg shadow-red-500/10"
-            >
+            <p className="text-xs leading-relaxed text-neutral-400">Como administrador, as tuas funções estão restritas à criação, auditoria e revogação de acessos na plataforma fitness.</p>
+            <button onClick={() => navigate('/dashboard/personal-trainers')} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-4 rounded-xl transition-colors text-sm cursor-pointer shadow-lg shadow-red-500/10">
               Ir para Gestão de PTs
             </button>
           </div>
-
           <div className="p-6 space-y-4 border lg:col-span-2 bg-neutral-900 border-neutral-800 rounded-2xl">
             <h3 className="text-base font-bold text-white">Nível de Segurança</h3>
             <div className="grid grid-cols-2 gap-3">
@@ -236,69 +213,170 @@ export default function Dashboard() {
   }
 
   // ==========================================
-  // 💪 CASO 2: PAINEL DO PT
+  // 💪 PAINEL DO PT
   // ==========================================
+  const totalAlunos = (metrics.totalAlunosAtivos || 0) + (metrics.totalAlunosInativos || 0);
+  const percAtivos = totalAlunos > 0 ? Math.round((metrics.totalAlunosAtivos / totalAlunos) * 100) : 0;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-black tracking-tight">Painel do Treinador</h1>
         <p className="text-sm text-neutral-400">
-          Olá, <span className="font-semibold text-white">{user?.nome}</span>. Visualiza o resumo das tuas atividades desportivas e alunos.
+          Olá, <span className="font-semibold text-white">{user?.nome}</span>. Aqui tens o resumo da tua atividade.
         </p>
       </div>
 
-      {/* Cartões do PT alimentados pelo estado assíncrono */}
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-        <div className="p-5 border bg-neutral-900 border-neutral-800 rounded-2xl">
-          <p className="text-xs font-semibold tracking-wider uppercase text-neutral-500">Os Meus Alunos</p>
-          <p className="mt-1 text-3xl font-black text-white">
-            {loadingMetrics ? <span className="text-sm font-normal text-neutral-500">A carregar...</span> : metrics.totalAlunos}
+      {/* Linha 1: 4 cartões de métricas */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {/* Alunos ativos */}
+        <div className="col-span-2 p-5 space-y-1 border bg-neutral-900 border-neutral-800 rounded-2xl sm:col-span-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold tracking-wider uppercase text-neutral-500">Alunos Ativos</p>
+            <span className="text-lg">💪</span>
+          </div>
+          <p className="text-3xl font-black text-emerald-400">
+            {loadingMetrics ? <span className="text-sm font-normal text-neutral-500">...</span> : metrics.totalAlunosAtivos}
+          </p>
+          <p className="text-[11px] text-neutral-500">
+            {loadingMetrics ? '' : `${metrics.totalAlunosInativos} inativo(s) • ${percAtivos}% taxa ativa`}
           </p>
         </div>
-        <div className="p-5 border bg-neutral-900 border-neutral-800 rounded-2xl">
-          <p className="text-xs font-semibold tracking-wider uppercase text-neutral-500">Planos Ativos</p>
-          <p className="mt-1 text-3xl font-black text-white">
-            {loadingMetrics ? <span className="text-sm font-normal text-neutral-500">A carregar...</span> : metrics.totalPlanos}
+
+        {/* Alunos inativos */}
+        <div className="col-span-2 p-5 space-y-1 border bg-neutral-900 border-neutral-800 rounded-2xl sm:col-span-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold tracking-wider uppercase text-neutral-500">Alunos Inativos</p>
+            <span className="text-lg">😴</span>
+          </div>
+          <p className="text-3xl font-black text-neutral-400">
+            {loadingMetrics ? <span className="text-sm font-normal text-neutral-500">...</span> : metrics.totalAlunosInativos}
+          </p>
+          <p className="text-[11px] text-neutral-500">
+            {loadingMetrics ? '' : `de ${totalAlunos} aluno(s) no total`}
           </p>
         </div>
-        <div className="p-5 border bg-neutral-900 border-neutral-800 rounded-2xl">
-          <p className="text-xs font-semibold tracking-wider uppercase text-neutral-500">Exercícios na Galeria</p>
-          <p className="mt-1 text-3xl font-black text-white">
-            {loadingMetrics ? <span className="text-sm font-normal text-neutral-500">A carregar...</span> : metrics.totalExercicios}
+
+        {/* Planos este mês */}
+        <div className="col-span-2 p-5 space-y-1 border bg-neutral-900 border-neutral-800 rounded-2xl sm:col-span-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold tracking-wider uppercase text-neutral-500">Planos Este Mês</p>
+            <span className="text-lg">📅</span>
+          </div>
+          <p className="text-3xl font-black text-blue-400">
+            {loadingMetrics ? <span className="text-sm font-normal text-neutral-500">...</span> : metrics.planosMes}
           </p>
+          <p className="text-[11px] text-neutral-500">
+            {loadingMetrics ? '' : `${metrics.totalPlanos} plano(s) no total`}
+          </p>
+        </div>
+
+        {/* Exercícios na galeria */}
+        <div className="col-span-2 p-5 space-y-1 border bg-neutral-900 border-neutral-800 rounded-2xl sm:col-span-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold tracking-wider uppercase text-neutral-500">Minha Galeria</p>
+            <span className="text-lg">🏋️</span>
+          </div>
+          <p className="text-3xl font-black text-red-400">
+            {loadingMetrics ? <span className="text-sm font-normal text-neutral-500">...</span> : metrics.totalExercicios}
+          </p>
+          <p className="text-[11px] text-neutral-500">exercício(s) adicionados</p>
         </div>
       </div>
 
-      {/*NOVO: Atalhos rápidos para as ações mais usadas */}
+      {/* Linha 2: Barra de progresso ativos/inativos + Últimos alunos */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+
+        {/* Distribuição de alunos */}
+        <div className="p-5 space-y-4 border bg-neutral-900 border-neutral-800 rounded-2xl">
+          <h3 className="text-sm font-bold text-white">📊 Distribuição de Alunos</h3>
+          {loadingMetrics ? (
+            <div className="py-4 text-xs text-center text-neutral-500">A carregar...</div>
+          ) : totalAlunos === 0 ? (
+            <div className="py-4 text-xs italic text-center text-neutral-500">Nenhum aluno registado ainda.</div>
+          ) : (
+            <div className="space-y-3">
+              {/* Barra de progresso */}
+              <div className="w-full h-3 overflow-hidden rounded-full bg-neutral-800">
+                <div
+                  className="h-full transition-all duration-700 rounded-full bg-emerald-500"
+                  style={{ width: `${percAtivos}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                  <span className="text-neutral-400">Ativos: <span className="font-bold text-white">{metrics.totalAlunosAtivos}</span></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-neutral-600 inline-block"></span>
+                  <span className="text-neutral-400">Inativos: <span className="font-bold text-white">{metrics.totalAlunosInativos}</span></span>
+                </div>
+              </div>
+              <div className="p-3 text-center border bg-neutral-950 rounded-xl border-neutral-800">
+                <p className="text-2xl font-black text-white">{percAtivos}%</p>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider">taxa de alunos ativos</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Últimos alunos adicionados */}
+        <div className="p-5 space-y-4 border bg-neutral-900 border-neutral-800 rounded-2xl">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-white">🆕 Últimos Alunos Adicionados</h3>
+            <button onClick={() => navigate('/dashboard/alunos')} className="text-[11px] text-red-400 hover:text-red-300 cursor-pointer transition-colors">Ver todos →</button>
+          </div>
+          {loadingMetrics ? (
+            <div className="py-4 text-xs text-center text-neutral-500">A carregar...</div>
+          ) : !metrics.ultimosAlunos || metrics.ultimosAlunos.length === 0 ? (
+            <div className="py-4 text-xs italic text-center text-neutral-500">Nenhum aluno adicionado ainda.</div>
+          ) : (
+            <div className="space-y-2">
+              {metrics.ultimosAlunos.map((aluno) => (
+                <div key={aluno.id} className="flex items-center justify-between p-3 border bg-neutral-950 rounded-xl border-neutral-800">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-8 h-8 text-xs font-bold text-white rounded-full bg-neutral-700">
+                      {aluno.nome.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">{aluno.nome}</p>
+                      <p className="text-[10px] text-neutral-500">
+                        {new Date(aluno.createdAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    aluno.status === 'Ativo'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : 'bg-neutral-800 text-neutral-500 border-neutral-700'
+                  }`}>
+                    {aluno.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Linha 3: Atalhos rápidos */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <button
-          onClick={() => navigate('/dashboard/treinos')}
-          className="p-4 text-left transition-colors border cursor-pointer bg-neutral-900 hover:bg-neutral-800 border-neutral-800 rounded-2xl group"
-        >
+        <button onClick={() => navigate('/dashboard/treinos')} className="p-4 text-left transition-colors border cursor-pointer bg-neutral-900 hover:bg-neutral-800 border-neutral-800 rounded-2xl group">
           <span className="text-2xl">📋</span>
           <p className="mt-2 text-sm font-bold text-white group-hover:text-red-400">Prescrever Treino</p>
           <p className="text-xs text-neutral-500">Criar ou editar um plano</p>
         </button>
-        <button
-          onClick={() => navigate('/dashboard/galeria')}
-          className="p-4 text-left transition-colors border cursor-pointer bg-neutral-900 hover:bg-neutral-800 border-neutral-800 rounded-2xl group"
-        >
+        <button onClick={() => navigate('/dashboard/galeria')} className="p-4 text-left transition-colors border cursor-pointer bg-neutral-900 hover:bg-neutral-800 border-neutral-800 rounded-2xl group">
           <span className="text-2xl">🏋️</span>
           <p className="mt-2 text-sm font-bold text-white group-hover:text-red-400">Galeria de Exercícios</p>
           <p className="text-xs text-neutral-500">Adicionar novos GIFs</p>
         </button>
-        <button
-          onClick={() => navigate('/dashboard/alunos')}
-          className="p-4 text-left transition-colors border cursor-pointer bg-neutral-900 hover:bg-neutral-800 border-neutral-800 rounded-2xl group"
-        >
+        <button onClick={() => navigate('/dashboard/alunos')} className="p-4 text-left transition-colors border cursor-pointer bg-neutral-900 hover:bg-neutral-800 border-neutral-800 rounded-2xl group">
           <span className="text-2xl">👥</span>
           <p className="mt-2 text-sm font-bold text-white group-hover:text-red-400">Gerir Alunos</p>
           <p className="text-xs text-neutral-500">Ver e editar atletas</p>
         </button>
-      </div>
-
-      <div className="p-10 text-sm text-center border border-dashed border-neutral-800 rounded-2xl text-neutral-500 bg-neutral-900/20">
-        🗂️ Seleciona uma das opções na barra lateral para começar a trabalhar.
       </div>
     </div>
   );
