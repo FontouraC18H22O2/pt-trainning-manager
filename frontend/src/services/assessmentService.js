@@ -1,14 +1,35 @@
-const express = require('express');
-const router = express.Router();
-const assessmentController = require('../controllers/assessmentController');
-const protect = require('../middlewares/authMiddleware');
+import api from './api';
 
-// Rotas protegidas (PT autenticado)
-router.get('/student/:studentId', protect, assessmentController.getAssessmentsByStudent);
-router.post('/student/:studentId', protect, assessmentController.createAssessment);
-router.delete('/:assessmentId', protect, assessmentController.deleteAssessment);
+const assessmentService = {
+  // Listar avaliações de um aluno (histórico)
+  getByStudent: async (studentId) => {
+    try {
+      const response = await api.get(`/assessments/student/${studentId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data?.error || 'Erro ao carregar avaliações.';
+    }
+  },
 
-// Rota pública (para a página do aluno via WhatsApp)
-router.get('/public/student/:studentId', assessmentController.getPublicAssessments);
+  // Criar nova avaliação
+  create: async (studentId, data) => {
+    try {
+      const response = await api.post(`/assessments/student/${studentId}`, data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data?.error || 'Erro ao guardar avaliação.';
+    }
+  },
 
-module.exports = router;
+  // Apagar avaliação
+  delete: async (assessmentId) => {
+    try {
+      const response = await api.delete(`/assessments/${assessmentId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data?.error || 'Erro ao apagar avaliação.';
+    }
+  }
+};
+
+export default assessmentService;
